@@ -1,45 +1,59 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import '../../core/bluetooth_service.dart';
+import 'package:plant_nanny/core/bluetooth_service.dart' as core;
 
 /// Implementation using flutter_blue_plus. This is intentionally general —
 /// it will look for devices with a name containing the provided `nameFilter`.
-class FlutterBluetoothService extends BluetoothService {
-  final FlutterBluePlus _ble = FlutterBluePlus.instance;
+class FlutterBluetoothService extends core.BluetoothService {
   final Duration scanDuration;
   final String? nameFilter;
 
-  FlutterBluetoothService({this.scanDuration = const Duration(seconds: 5), this.nameFilter});
+  FlutterBluetoothService({
+    this.scanDuration = const Duration(seconds: 5),
+    this.nameFilter,
+  });
 
   @override
-  Future<List<BluetoothEndpoint>> findNearEndpoints() async {
+  Future<List<core.BluetoothEndpoint>> findNearEndpoints() async {
     final found = <FlutterBluetoothEndpoint>[];
     final completer = Completer<void>();
 
-    _ble.startScan(timeout: scanDuration).listen((scanResult) {
-      final device = scanResult.device;
-      final name = device.name;
-      if (name == null || name.isEmpty) return;
-      if (nameFilter == null || name.contains(nameFilter!)) {
-        final endpoint = FlutterBluetoothEndpoint(device: device, name: name);
-        if (!found.any((e) => e.id == endpoint.id)) found.add(endpoint);
+    FlutterBluePlus.startScan(timeout: scanDuration);
+
+    final subscription = FlutterBluePlus.scanResults.listen((results) {
+      for (final scanResult in results) {
+        final device = scanResult.device;
+        final name = device.platformName;
+        if (name.isEmpty) continue;
+        if (nameFilter == null || name.contains(nameFilter!)) {
+          final endpoint = FlutterBluetoothEndpoint(device: device, name: name);
+          if (!found.any((e) => e.id == endpoint.id)) found.add(endpoint);
+        }
       }
-    }, onDone: () => completer.complete(), onError: (_) => completer.complete());
+    });
+
+    FlutterBluePlus.isScanning.listen((isScanning) {
+      if (!isScanning && !completer.isCompleted) {
+        completer.complete();
+      }
+    });
 
     await completer.future;
-    _ble.stopScan();
+    await subscription.cancel();
+    await FlutterBluePlus.stopScan();
     return found;
   }
 
   @override
-  Future<bool> connect(BluetoothEndpoint endpoint) async {
+  Future<bool> connect(core.BluetoothEndpoint endpoint) async {
     return await endpoint.connect();
   }
 }
 
-class FlutterBluetoothEndpoint implements BluetoothEndpoint {
+class FlutterBluetoothEndpoint implements core.BluetoothEndpoint {
   final BluetoothDevice device;
+  @override
   final String? name;
   BluetoothCharacteristic? _tx; // write characteristic
   BluetoothCharacteristic? _rx; // notify/read characteristic
@@ -49,12 +63,14 @@ class FlutterBluetoothEndpoint implements BluetoothEndpoint {
   FlutterBluetoothEndpoint({required this.device, this.name});
 
   @override
-  String get id => device.id.id;
+  String get id => device.remoteId.str;
 
   @override
   Future<bool> connect() async {
     try {
-      await device.connect(autoConnect: false).timeout(const Duration(seconds: 10));
+      await device
+          .connect(license: License.free, autoConnect: false)
+          .timeout(const Duration(seconds: 10));
     } catch (_) {}
 
     final services = await device.discoverServices();
@@ -70,7 +86,7 @@ class FlutterBluetoothEndpoint implements BluetoothEndpoint {
     if (_rx != null) {
       try {
         await _rx!.setNotifyValue(true);
-        _sub = _rx!.value.listen((data) {
+        _sub = _rx!.lastValueStream.listen((data) {
           try {
             final msg = utf8.decode(data);
             _incoming.add(msg);
@@ -84,8 +100,7 @@ class FlutterBluetoothEndpoint implements BluetoothEndpoint {
 
   @override
   Future<bool> isConnected() async {
-    final state = await device.state.first;
-    return state == BluetoothDeviceState.connected;
+    return device.isConnected;
   }
 
   @override

@@ -1,0 +1,13 @@
+v1/me:
+  get:
+    tags: [Auth]
+    summary: Get current user profile (from token)
+    operationId: handlers.v1.me.get
+    security: [{ FirebaseJwt: [] }]
+    responses:
+      "200":
+        description: Profile
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/user.yaml#/UserProfile" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }

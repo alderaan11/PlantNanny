@@ -1,0 +1,47 @@
+Device:
+  type: object
+  properties:
+    deviceId: { type: string }
+    name: { type: string }
+    ownerUid: { type: string }
+    createdAt: { type: string, format: date-time }
+    lastSeen: { type: string, format: date-time }
+    firmwareVersion: { type: string }
+  required: [deviceId, createdAt]
+
+DeviceList:
+  type: object
+  properties:
+    count: { type: integer }
+    items:
+      type: array
+      items: { $ref: "#/Device" }
+  required: [count, items]
+
+DeviceStatus:
+  type: object
+  properties:
+    deviceId: { type: string }
+    online: { type: boolean }
+    lastSeen: { type: string, format: date-time }
+    wifiRssi: { type: integer }
+    ip: { type: string }
+    firmwareVersion: { type: string }
+  required: [deviceId, online]
+
+RegisterDeviceRequest:
+  type: object
+  properties:
+    pairingCode:
+      type: string
+      description: Short-lived pairing code obtained from device (via BLE/provisioning)
+    name:
+      type: string
+      description: Friendly name for the device
+  required: [pairingCode]
+
+UpdateDeviceRequest:
+  type: object
+  properties:
+    name: { type: string }
+  additionalProperties: false

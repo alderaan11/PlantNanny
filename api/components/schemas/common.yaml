@@ -1,0 +1,6 @@
+Error:
+  type: object
+  properties:
+    error: { type: string }
+    details: { type: object, additionalProperties: true }
+  required: [error]

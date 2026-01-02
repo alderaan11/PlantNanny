@@ -1,0 +1,7 @@
+UserProfile:
+  type: object
+  properties:
+    uid: { type: string }
+    email: { type: string }
+    displayName: { type: string }
+  required: [uid]

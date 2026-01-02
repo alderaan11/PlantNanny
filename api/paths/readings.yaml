@@ -1,0 +1,120 @@
+v1/devices/{deviceId}/readings:
+  post:
+    tags: [Readings]
+    summary: Ingest a sensor reading (ESP32)
+    operationId: handlers.v1.devices.readings.post
+    security: [{ DeviceKey: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "../components/schemas/reading.yaml#/ReadingIn" }
+          examples:
+            example:
+              value:
+                temperatureC: 22.4
+                humidityPct: 55.2
+                luminosityPct: 12.3
+    responses:
+      "201":
+        description: Created
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/reading.yaml#/Reading" }
+      "400": { $ref: "../components/responses.yaml#/BadRequest" }
+      "401":
+        description: Invalid device key
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/common.yaml#/Error" }
+
+  get:
+    tags: [Readings]
+    summary: Query readings history (Flutter)
+    operationId: handlers.v1.devices.readings.get
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+      - in: query
+        name: from
+        description: ISO-8601 datetime (UTC). Inclusive.
+        schema: { type: string, format: date-time }
+      - in: query
+        name: to
+        description: ISO-8601 datetime (UTC). Exclusive.
+        schema: { type: string, format: date-time }
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 2000, default: 200 }
+      - in: query
+        name: order
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: desc
+    responses:
+      "200":
+        description: List of readings
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/reading.yaml#/ReadingList" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }
+
+v1/devices/{deviceId}/readings/last:
+  get:
+    tags: [Readings]
+    summary: Get last reading
+    operationId: handlers.v1.devices.readings.last_get
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    responses:
+      "200":
+        description: Last reading
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/reading.yaml#/Reading" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404":
+        description: No data yet or device not found
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/common.yaml#/Error" }
+
+v1/devices/{deviceId}/readings/aggregate:
+  get:
+    tags: [Readings]
+    summary: Aggregate readings for charts (optional but useful)
+    operationId: handlers.v1.devices.readings.aggregate_get
+    description: >
+      Retourne des buckets pour graphe (ex: moyenne par 5min/1h).
+      Permet d'éviter de télécharger des milliers de points.
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+      - in: query
+        name: from
+        required: true
+        schema: { type: string, format: date-time }
+      - in: query
+        name: to
+        required: true
+        schema: { type: string, format: date-time }
+      - in: query
+        name: bucket
+        required: true
+        schema:
+          type: string
+          enum: [1m, 5m, 15m, 1h, 6h, 1d]
+    responses:
+      "200":
+        description: Aggregated points
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/reading.yaml#/AggregateSeries" }
+      "400": { $ref: "../components/responses.yaml#/BadRequest" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }

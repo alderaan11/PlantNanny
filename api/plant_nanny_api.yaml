@@ -22,660 +22,105 @@ tags:
 
 paths:
   /health:
-    get:
-      summary: Health check
-      operationId: handlers.health.get
-      responses:
-        "200":
-          description: OK
-          content:
-            text/plain:
-              schema: { type: string }
+    $ref: 'paths/health.yaml#/health'
 
   /v1/me:
-    get:
-      tags: [Auth]
-      summary: Get current user profile (from token)
-      operationId: handlers.v1.me.get
-      security: [{ FirebaseJwt: [] }]
-      responses:
-        "200":
-          description: Profile
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/UserProfile" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
+    $ref: 'paths/auth.yaml#/v1~1me'
 
   /v1/devices:
-    get:
-      tags: [Devices]
-      summary: List devices for current user
-      operationId: handlers.v1.devices.get
-      security: [{ FirebaseJwt: [] }]
-      responses:
-        "200":
-          description: List of devices
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeviceList" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
+    $ref: 'paths/devices.yaml#/v1~1devices'
 
   /v1/devices:register:
-    post:
-      tags: [Devices]
-      summary: Register (pair) a device to the authenticated user
-      operationId: handlers.v1.devices.register_post
-      description: >
-        Utilisé après appairage BLE/provisioning : l'app obtient un pairingCode depuis l'ESP32,
-        puis appelle cette route pour associer le device au user.
-      security: [{ FirebaseJwt: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/RegisterDeviceRequest" }
-            examples:
-              example:
-                value:
-                  pairingCode: "ABCD-1234"
-                  name: "Mon basilic"
-      responses:
-        "200":
-          description: Registered device
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Device" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "409":
-          description: Pairing code invalid/expired or already used
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+    $ref: 'paths/devices.yaml#/v1~1devices:register'
 
   /v1/devices/{deviceId}:
-    get:
-      tags: [Devices]
-      summary: Get device details
-      operationId: handlers.v1.devices.device_id_get
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      responses:
-        "200":
-          description: Device
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Device" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-    patch:
-      tags: [Devices]
-      summary: Update device (rename, metadata)
-      operationId: handlers.v1.devices.device_id_patch
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/UpdateDeviceRequest" }
-      responses:
-        "200":
-          description: Updated
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Device" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/devices.yaml#/v1~1devices~1{deviceId}'
 
   /v1/devices/{deviceId}:unregister:
-    post:
-      tags: [Devices]
-      summary: Unregister device from current user
-      operationId: handlers.v1.devices.device_id_unregister_post
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      responses:
-        "204":
-          description: Unregistered
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/devices.yaml#/v1~1devices~1{deviceId}:unregister'
 
   /v1/devices/{deviceId}/status:
-    get:
-      tags: [Devices]
-      summary: Get device status (connectivity, lastSeen, firmware)
-      operationId: handlers.v1.devices.device_id_status_get
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      responses:
-        "200":
-          description: Status
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DeviceStatus" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/devices.yaml#/v1~1devices~1{deviceId}~1status'
 
-  # ---------- Readings (ESP32 -> API ingestion, Flutter -> API queries) ----------
   /v1/devices/{deviceId}/readings:
-    post:
-      tags: [Readings]
-      summary: Ingest a sensor reading (ESP32)
-      operationId: handlers.v1.devices.readings.post
-      security: [{ DeviceKey: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ReadingIn" }
-            examples:
-              example:
-                value:
-                  temperatureC: 22.4
-                  humidityPct: 55.2
-                  luminosityPct: 12.3
-      responses:
-        "201":
-          description: Created
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Reading" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401":
-          description: Invalid device key
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-
-    get:
-      tags: [Readings]
-      summary: Query readings history (Flutter)
-      operationId: handlers.v1.devices.readings.get
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-        - in: query
-          name: from
-          description: ISO-8601 datetime (UTC). Inclusive.
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          description: ISO-8601 datetime (UTC). Exclusive.
-          schema: { type: string, format: date-time }
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 2000, default: 200 }
-        - in: query
-          name: order
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
-      responses:
-        "200":
-          description: List of readings
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ReadingList" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/readings.yaml#/v1~1devices~1{deviceId}~1readings'
 
   /v1/devices/{deviceId}/readings/last:
-    get:
-      tags: [Readings]
-      summary: Get last reading
-      operationId: handlers.v1.devices.readings.last_get
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      responses:
-        "200":
-          description: Last reading
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Reading" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404":
-          description: No data yet or device not found
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+    $ref: 'paths/readings.yaml#/v1~1devices~1{deviceId}~1readings~1last'
 
   /v1/devices/{deviceId}/readings/aggregate:
-    get:
-      tags: [Readings]
-      summary: Aggregate readings for charts (optional but useful)
-      operationId: handlers.v1.devices.readings.aggregate_get
-      description: >
-        Retourne des buckets pour graphe (ex: moyenne par 5min/1h).
-        Permet d'éviter de télécharger des milliers de points.
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: bucket
-          required: true
-          schema:
-            type: string
-            enum: [1m, 5m, 15m, 1h, 6h, 1d]
-      responses:
-        "200":
-          description: Aggregated points
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AggregateSeries" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/readings.yaml#/v1~1devices~1{deviceId}~1readings~1aggregate'
 
-  # ---------- Realtime ----------
   /v1/devices/{deviceId}/stream:
-    get:
-      tags: [Realtime]
-      summary: Server-Sent Events stream (API-only realtime)
-      operationId: handlers.v1.devices.stream.get
-      description: >
-        Optionnel si tu utilises déjà Firestore listeners.
-        Flux SSE d'événements: reading, status, commandUpdate.
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      responses:
-        "200":
-          description: SSE stream (text/event-stream)
-          content:
-            text/event-stream:
-              schema:
-                type: string
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/realtime.yaml#/v1~1devices~1{deviceId}~1stream'
 
-  # ---------- Commands (Flutter -> create, ESP32 -> poll/ack) ----------
   /v1/devices/{deviceId}/commands:
-    post:
-      tags: [Commands]
-      summary: Create a command for a device (force reading, pump, etc.)
-      operationId: handlers.v1.devices.commands.post
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CommandIn" }
-            examples:
-              force_reading:
-                value: { type: force_reading }
-              pump_water:
-                value: { type: pump_water, durationMs: 5000, amountMl: 30 }
-      responses:
-        "201":
-          description: Command created
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Command" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-
-    get:
-      tags: [Commands]
-      summary: List commands (for UI history/debug)
-      operationId: handlers.v1.devices.commands.get
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
-      responses:
-        "200":
-          description: Commands
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/CommandList" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/commands.yaml#/v1~1devices~1{deviceId}~1commands'
 
   /v1/devices/{deviceId}/commands/pending:
-    get:
-      tags: [Commands]
-      summary: ESP32 polls pending commands
-      operationId: handlers.v1.devices.commands.pending_get
-      security: [{ DeviceKey: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-        - in: query
-          name: max
-          schema: { type: integer, minimum: 1, maximum: 20, default: 5 }
-      responses:
-        "200":
-          description: Pending commands
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/CommandList" }
-        "401":
-          description: Invalid device key
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+    $ref: 'paths/commands.yaml#/v1~1devices~1{deviceId}~1commands~1pending'
 
   /v1/devices/{deviceId}/commands/{commandId}:ack:
-    post:
-      tags: [Commands]
-      summary: ESP32 acknowledges command execution result
-      operationId: handlers.v1.devices.commands.command_id_ack_post
-      security: [{ DeviceKey: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-        - $ref: "#/components/parameters/CommandId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CommandAck" }
-            examples:
-              ok:
-                value: { status: done }
-              failed:
-                value: { status: failed, errorMessage: "Pump timeout" }
-      responses:
-        "200":
-          description: Updated command
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Command" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401":
-          description: Invalid device key
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/commands.yaml#/v1~1devices~1{deviceId}~1commands~1{commandId}:ack'
 
-  # ---------- OTA (optional placeholders) ----------
   /v1/devices/{deviceId}/ota:
-    post:
-      tags: [OTA]
-      summary: Request OTA check/update
-      operationId: handlers.v1.devices.ota.post
-      description: >
-        Typiquement, l'app crée une commande ota_check (ou ota_update) via /commands.
-        Cette route est un raccourci possible.
-      security: [{ FirebaseJwt: [] }]
-      parameters:
-        - $ref: "#/components/parameters/DeviceId"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                version: { type: string }
-      responses:
-        "201":
-          description: Created OTA command
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Command" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
+    $ref: 'paths/ota.yaml#/v1~1devices~1{deviceId}~1ota'
 
 components:
   parameters:
     DeviceId:
-      in: path
-      name: deviceId
-      required: true
-      schema: { type: string }
-      description: Unique device identifier (e.g., esp32-1)
+      $ref: 'components/parameters.yaml#/DeviceId'
     CommandId:
-      in: path
-      name: commandId
-      required: true
-      schema: { type: string }
-      description: Command identifier
+      $ref: 'components/parameters.yaml#/CommandId'
 
   securitySchemes:
     FirebaseJwt:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Firebase Authentication JWT
-      x-bearerInfoFunc: security.firebase_jwt_info_func
+      $ref: 'components/security-schemes.yaml#/FirebaseJwt'
     DeviceKey:
-      type: apiKey
-      in: header
-      name: x-device-key
-      description: Shared secret key for device authentication
-      x-apikeyInfoFunc: security.device_key_info_func
+      $ref: 'components/security-schemes.yaml#/DeviceKey'
 
   responses:
     BadRequest:
-      description: Bad request
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
+      $ref: 'components/responses.yaml#/BadRequest'
     Unauthorized:
-      description: Unauthorized
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
+      $ref: 'components/responses.yaml#/Unauthorized'
     NotFound:
-      description: Not found
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/Error" }
+      $ref: 'components/responses.yaml#/NotFound'
 
   schemas:
     Error:
-      type: object
-      properties:
-        error: { type: string }
-        details: { type: object, additionalProperties: true }
-      required: [error]
-
+      $ref: 'components/schemas/common.yaml#/Error'
     UserProfile:
-      type: object
-      properties:
-        uid: { type: string }
-        email: { type: string }
-        displayName: { type: string }
-      required: [uid]
-
+      $ref: 'components/schemas/user.yaml#/UserProfile'
     Device:
-      type: object
-      properties:
-        deviceId: { type: string }
-        name: { type: string }
-        ownerUid: { type: string }
-        createdAt: { type: string, format: date-time }
-        lastSeen: { type: string, format: date-time }
-        firmwareVersion: { type: string }
-      required: [deviceId, createdAt]
-
+      $ref: 'components/schemas/device.yaml#/Device'
     DeviceList:
-      type: object
-      properties:
-        count: { type: integer }
-        items:
-          type: array
-          items: { $ref: "#/components/schemas/Device" }
-      required: [count, items]
-
+      $ref: 'components/schemas/device.yaml#/DeviceList'
     DeviceStatus:
-      type: object
-      properties:
-        deviceId: { type: string }
-        online: { type: boolean }
-        lastSeen: { type: string, format: date-time }
-        wifiRssi: { type: integer }
-        ip: { type: string }
-        firmwareVersion: { type: string }
-      required: [deviceId, online]
-
+      $ref: 'components/schemas/device.yaml#/DeviceStatus'
     RegisterDeviceRequest:
-      type: object
-      properties:
-        pairingCode:
-          type: string
-          description: Short-lived pairing code obtained from device (via BLE/provisioning)
-        name:
-          type: string
-          description: Friendly name for the device
-      required: [pairingCode]
-
+      $ref: 'components/schemas/device.yaml#/RegisterDeviceRequest'
     UpdateDeviceRequest:
-      type: object
-      properties:
-        name: { type: string }
-      additionalProperties: false
-
+      $ref: 'components/schemas/device.yaml#/UpdateDeviceRequest'
     ReadingIn:
-      type: object
-      properties:
-        ts:
-          type: string
-          format: date-time
-          description: Optional; if omitted, server uses receive time (UTC)
-        temperatureC: { type: number }
-        humidityPct:
-          type: number
-          minimum: 0
-          maximum: 100
-        luminosityPct:
-          type: number
-          minimum: 0
-          maximum: 100
-      required: [temperatureC, humidityPct, luminosityPct]
-      additionalProperties: false
-
+      $ref: 'components/schemas/reading.yaml#/ReadingIn'
     Reading:
-      type: object
-      properties:
-        id: { type: string }
-        deviceId: { type: string }
-        ts: { type: string, format: date-time }
-        temperatureC: { type: number }
-        humidityPct: { type: number }
-        luminosityPct: { type: number }
-      required: [id, deviceId, ts, temperatureC, humidityPct, luminosityPct]
-
+      $ref: 'components/schemas/reading.yaml#/Reading'
     ReadingList:
-      type: object
-      properties:
-        count: { type: integer }
-        items:
-          type: array
-          items: { $ref: "#/components/schemas/Reading" }
-      required: [count, items]
-
+      $ref: 'components/schemas/reading.yaml#/ReadingList'
     AggregatePoint:
-      type: object
-      properties:
-        ts: { type: string, format: date-time }
-        temperatureC_avg: { type: number }
-        humidityPct_avg: { type: number }
-        luminosityPct_avg: { type: number }
-        temperatureC_min: { type: number }
-        temperatureC_max: { type: number }
-      required: [ts]
-      additionalProperties: true
-
+      $ref: 'components/schemas/reading.yaml#/AggregatePoint'
     AggregateSeries:
-      type: object
-      properties:
-        bucket: { type: string }
-        from: { type: string, format: date-time }
-        to: { type: string, format: date-time }
-        items:
-          type: array
-          items: { $ref: "#/components/schemas/AggregatePoint" }
-      required: [bucket, from, to, items]
-
+      $ref: 'components/schemas/reading.yaml#/AggregateSeries'
     CommandType:
-      type: string
-      enum:
-        - force_reading
-        - pump_water
-        - pump_on
-        - pump_off
-        - ota_check
-        - ota_update
-
+      $ref: 'components/schemas/command.yaml#/CommandType'
     CommandIn:
-      type: object
-      properties:
-        type: { $ref: "#/components/schemas/CommandType" }
-        # pump_water/pump_on can use duration or amount
-        durationMs:
-          type: integer
-          minimum: 0
-          description: Pump run duration in milliseconds (recommended for pump control)
-        amountMl:
-          type: number
-          minimum: 0
-          description: Optional target amount in ml (if you can measure/estimate flow)
-        # optional metadata
-        requestedBy:
-          type: string
-          description: Optional (server may fill with user uid)
-      required: [type]
-      additionalProperties: false
-
+      $ref: 'components/schemas/command.yaml#/CommandIn'
     CommandStatus:
-      type: string
-      enum: [pending, sent, done, failed, canceled]
-
+      $ref: 'components/schemas/command.yaml#/CommandStatus'
     Command:
-      type: object
-      properties:
-        id: { type: string }
-        deviceId: { type: string }
-        type: { $ref: "#/components/schemas/CommandType" }
-        status: { $ref: "#/components/schemas/CommandStatus" }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
-        durationMs: { type: integer }
-        amountMl: { type: number }
-        errorMessage: { type: string }
-      required: [id, deviceId, type, status, createdAt]
-
+      $ref: 'components/schemas/command.yaml#/Command'
     CommandList:
-      type: object
-      properties:
-        count: { type: integer }
-        items:
-          type: array
-          items: { $ref: "#/components/schemas/Command" }
-      required: [count, items]
-
+      $ref: 'components/schemas/command.yaml#/CommandList'
     CommandAck:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [done, failed]
-        errorMessage:
-          type: string
-      required: [status]
-      additionalProperties: false
+      $ref: 'components/schemas/command.yaml#/CommandAck'

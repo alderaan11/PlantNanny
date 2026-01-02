@@ -1,0 +1,13 @@
+DeviceId:
+  in: path
+  name: deviceId
+  required: true
+  schema: { type: string }
+  description: Unique device identifier (e.g., esp32-1)
+
+CommandId:
+  in: path
+  name: commandId
+  required: true
+  schema: { type: string }
+  description: Command identifier

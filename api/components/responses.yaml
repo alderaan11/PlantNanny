@@ -1,0 +1,17 @@
+BadRequest:
+  description: Bad request
+  content:
+    application/json:
+      schema: { $ref: "schemas/common.yaml#/Error" }
+
+Unauthorized:
+  description: Unauthorized
+  content:
+    application/json:
+      schema: { $ref: "schemas/common.yaml#/Error" }
+
+NotFound:
+  description: Not found
+  content:
+    application/json:
+      schema: { $ref: "schemas/common.yaml#/Error" }

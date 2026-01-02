@@ -1,0 +1,10 @@
+health:
+  get:
+    summary: Health check
+    operationId: handlers.health.get
+    responses:
+      "200":
+        description: OK
+        content:
+          text/plain:
+            schema: { type: string }

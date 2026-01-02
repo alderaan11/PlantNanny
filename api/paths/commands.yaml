@@ -1,0 +1,102 @@
+v1/devices/{deviceId}/commands:
+  post:
+    tags: [Commands]
+    summary: Create a command for a device (force reading, pump, etc.)
+    operationId: handlers.v1.devices.commands.post
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "../components/schemas/command.yaml#/CommandIn" }
+          examples:
+            force_reading:
+              value: { type: force_reading }
+            pump_water:
+              value: { type: pump_water, durationMs: 5000, amountMl: 30 }
+    responses:
+      "201":
+        description: Command created
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/command.yaml#/Command" }
+      "400": { $ref: "../components/responses.yaml#/BadRequest" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }
+
+  get:
+    tags: [Commands]
+    summary: List commands (for UI history/debug)
+    operationId: handlers.v1.devices.commands.get
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+    responses:
+      "200":
+        description: Commands
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/command.yaml#/CommandList" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }
+
+v1/devices/{deviceId}/commands/pending:
+  get:
+    tags: [Commands]
+    summary: ESP32 polls pending commands
+    operationId: handlers.v1.devices.commands.pending_get
+    security: [{ DeviceKey: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+      - in: query
+        name: max
+        schema: { type: integer, minimum: 1, maximum: 20, default: 5 }
+    responses:
+      "200":
+        description: Pending commands
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/command.yaml#/CommandList" }
+      "401":
+        description: Invalid device key
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/common.yaml#/Error" }
+
+v1/devices/{deviceId}/commands/{commandId}:ack:
+  post:
+    tags: [Commands]
+    summary: ESP32 acknowledges command execution result
+    operationId: handlers.v1.devices.commands.command_id_ack_post
+    security: [{ DeviceKey: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+      - $ref: "../components/parameters.yaml#/CommandId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "../components/schemas/command.yaml#/CommandAck" }
+          examples:
+            ok:
+              value: { status: done }
+            failed:
+              value: { status: failed, errorMessage: "Pump timeout" }
+    responses:
+      "200":
+        description: Updated command
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/command.yaml#/Command" }
+      "400": { $ref: "../components/responses.yaml#/BadRequest" }
+      "401":
+        description: Invalid device key
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/common.yaml#/Error" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }

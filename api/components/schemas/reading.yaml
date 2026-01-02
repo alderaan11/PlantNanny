@@ -1,0 +1,61 @@
+ReadingIn:
+  type: object
+  properties:
+    ts:
+      type: string
+      format: date-time
+      description: Optional; if omitted, server uses receive time (UTC)
+    temperatureC: { type: number }
+    humidityPct:
+      type: number
+      minimum: 0
+      maximum: 100
+    luminosityPct:
+      type: number
+      minimum: 0
+      maximum: 100
+  required: [temperatureC, humidityPct, luminosityPct]
+  additionalProperties: false
+
+Reading:
+  type: object
+  properties:
+    id: { type: string }
+    deviceId: { type: string }
+    ts: { type: string, format: date-time }
+    temperatureC: { type: number }
+    humidityPct: { type: number }
+    luminosityPct: { type: number }
+  required: [id, deviceId, ts, temperatureC, humidityPct, luminosityPct]
+
+ReadingList:
+  type: object
+  properties:
+    count: { type: integer }
+    items:
+      type: array
+      items: { $ref: "#/Reading" }
+  required: [count, items]
+
+AggregatePoint:
+  type: object
+  properties:
+    ts: { type: string, format: date-time }
+    temperatureC_avg: { type: number }
+    humidityPct_avg: { type: number }
+    luminosityPct_avg: { type: number }
+    temperatureC_min: { type: number }
+    temperatureC_max: { type: number }
+  required: [ts]
+  additionalProperties: true
+
+AggregateSeries:
+  type: object
+  properties:
+    bucket: { type: string }
+    from: { type: string, format: date-time }
+    to: { type: string, format: date-time }
+    items:
+      type: array
+      items: { $ref: "#/AggregatePoint" }
+  required: [bucket, from, to, items]

@@ -1,0 +1,43 @@
+# Schema index - re-exports all schemas for easy reference
+# Import individual schema files directly for specific types
+
+Error:
+  $ref: 'common.yaml#/Error'
+
+UserProfile:
+  $ref: 'user.yaml#/UserProfile'
+
+Device:
+  $ref: 'device.yaml#/Device'
+DeviceList:
+  $ref: 'device.yaml#/DeviceList'
+DeviceStatus:
+  $ref: 'device.yaml#/DeviceStatus'
+RegisterDeviceRequest:
+  $ref: 'device.yaml#/RegisterDeviceRequest'
+UpdateDeviceRequest:
+  $ref: 'device.yaml#/UpdateDeviceRequest'
+
+ReadingIn:
+  $ref: 'reading.yaml#/ReadingIn'
+Reading:
+  $ref: 'reading.yaml#/Reading'
+ReadingList:
+  $ref: 'reading.yaml#/ReadingList'
+AggregatePoint:
+  $ref: 'reading.yaml#/AggregatePoint'
+AggregateSeries:
+  $ref: 'reading.yaml#/AggregateSeries'
+
+CommandType:
+  $ref: 'command.yaml#/CommandType'
+CommandIn:
+  $ref: 'command.yaml#/CommandIn'
+CommandStatus:
+  $ref: 'command.yaml#/CommandStatus'
+Command:
+  $ref: 'command.yaml#/Command'
+CommandList:
+  $ref: 'command.yaml#/CommandList'
+CommandAck:
+  $ref: 'command.yaml#/CommandAck'

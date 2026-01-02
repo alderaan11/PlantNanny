@@ -1,11 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/repositories/devices_repository.dart';
+import 'package:plant_nanny/data/repositories/devices_repository.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
 
 final devicesControllerProvider =
     AsyncNotifierProvider<DevicesController, List<Device>>(
-  DevicesController.new,
-);
+      DevicesController.new,
+    );
 
 class DevicesController extends AsyncNotifier<List<Device>> {
   @override

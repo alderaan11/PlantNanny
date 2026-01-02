@@ -1,0 +1,67 @@
+CommandType:
+  type: string
+  enum:
+    - force_reading
+    - pump_water
+    - pump_on
+    - pump_off
+    - ota_check
+    - ota_update
+
+CommandIn:
+  type: object
+  properties:
+    type: { $ref: "#/CommandType" }
+    # pump_water/pump_on can use duration or amount
+    durationMs:
+      type: integer
+      minimum: 0
+      description: Pump run duration in milliseconds (recommended for pump control)
+    amountMl:
+      type: number
+      minimum: 0
+      description: Optional target amount in ml (if you can measure/estimate flow)
+    # optional metadata
+    requestedBy:
+      type: string
+      description: Optional (server may fill with user uid)
+  required: [type]
+  additionalProperties: false
+
+CommandStatus:
+  type: string
+  enum: [pending, sent, done, failed, canceled]
+
+Command:
+  type: object
+  properties:
+    id: { type: string }
+    deviceId: { type: string }
+    type: { $ref: "#/CommandType" }
+    status: { $ref: "#/CommandStatus" }
+    createdAt: { type: string, format: date-time }
+    updatedAt: { type: string, format: date-time }
+    durationMs: { type: integer }
+    amountMl: { type: number }
+    errorMessage: { type: string }
+  required: [id, deviceId, type, status, createdAt]
+
+CommandList:
+  type: object
+  properties:
+    count: { type: integer }
+    items:
+      type: array
+      items: { $ref: "#/Command" }
+  required: [count, items]
+
+CommandAck:
+  type: object
+  properties:
+    status:
+      type: string
+      enum: [done, failed]
+    errorMessage:
+      type: string
+  required: [status]
+  additionalProperties: false

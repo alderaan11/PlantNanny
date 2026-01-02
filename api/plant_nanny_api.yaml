@@ -1,0 +1,126 @@
+openapi: 3.0.3
+info:
+  title: PlantNanny API
+  version: 1.0.0
+  description: >
+    API pour gérer les comptes, appareils ESP32, ingestion des capteurs (température/humidité/luminosité),
+    historique, temps réel, et commandes (force reading, arrosage/pompe, OTA).
+
+servers:
+  - url: http://localhost:8080
+    description: Local dev
+  - url: https://api.example.com
+    description: Production
+
+tags:
+  - name: Auth
+  - name: Devices
+  - name: Readings
+  - name: Realtime
+  - name: Commands
+  - name: OTA
+
+paths:
+  /health:
+    $ref: 'paths/health.yaml#/health'
+
+  /v1/me:
+    $ref: 'paths/auth.yaml#/v1~1me'
+
+  /v1/devices:
+    $ref: 'paths/devices.yaml#/v1~1devices'
+
+  /v1/devices:register:
+    $ref: 'paths/devices.yaml#/v1~1devices:register'
+
+  /v1/devices/{deviceId}:
+    $ref: 'paths/devices.yaml#/v1~1devices~1{deviceId}'
+
+  /v1/devices/{deviceId}:unregister:
+    $ref: 'paths/devices.yaml#/v1~1devices~1{deviceId}:unregister'
+
+  /v1/devices/{deviceId}/status:
+    $ref: 'paths/devices.yaml#/v1~1devices~1{deviceId}~1status'
+
+  /v1/devices/{deviceId}/readings:
+    $ref: 'paths/readings.yaml#/v1~1devices~1{deviceId}~1readings'
+
+  /v1/devices/{deviceId}/readings/last:
+    $ref: 'paths/readings.yaml#/v1~1devices~1{deviceId}~1readings~1last'
+
+  /v1/devices/{deviceId}/readings/aggregate:
+    $ref: 'paths/readings.yaml#/v1~1devices~1{deviceId}~1readings~1aggregate'
+
+  /v1/devices/{deviceId}/stream:
+    $ref: 'paths/realtime.yaml#/v1~1devices~1{deviceId}~1stream'
+
+  /v1/devices/{deviceId}/commands:
+    $ref: 'paths/commands.yaml#/v1~1devices~1{deviceId}~1commands'
+
+  /v1/devices/{deviceId}/commands/pending:
+    $ref: 'paths/commands.yaml#/v1~1devices~1{deviceId}~1commands~1pending'
+
+  /v1/devices/{deviceId}/commands/{commandId}:ack:
+    $ref: 'paths/commands.yaml#/v1~1devices~1{deviceId}~1commands~1{commandId}:ack'
+
+  /v1/devices/{deviceId}/ota:
+    $ref: 'paths/ota.yaml#/v1~1devices~1{deviceId}~1ota'
+
+components:
+  parameters:
+    DeviceId:
+      $ref: 'components/parameters.yaml#/DeviceId'
+    CommandId:
+      $ref: 'components/parameters.yaml#/CommandId'
+
+  securitySchemes:
+    FirebaseJwt:
+      $ref: 'components/security-schemes.yaml#/FirebaseJwt'
+    DeviceKey:
+      $ref: 'components/security-schemes.yaml#/DeviceKey'
+
+  responses:
+    BadRequest:
+      $ref: 'components/responses.yaml#/BadRequest'
+    Unauthorized:
+      $ref: 'components/responses.yaml#/Unauthorized'
+    NotFound:
+      $ref: 'components/responses.yaml#/NotFound'
+
+  schemas:
+    Error:
+      $ref: 'components/schemas/common.yaml#/Error'
+    UserProfile:
+      $ref: 'components/schemas/user.yaml#/UserProfile'
+    Device:
+      $ref: 'components/schemas/device.yaml#/Device'
+    DeviceList:
+      $ref: 'components/schemas/device.yaml#/DeviceList'
+    DeviceStatus:
+      $ref: 'components/schemas/device.yaml#/DeviceStatus'
+    RegisterDeviceRequest:
+      $ref: 'components/schemas/device.yaml#/RegisterDeviceRequest'
+    UpdateDeviceRequest:
+      $ref: 'components/schemas/device.yaml#/UpdateDeviceRequest'
+    ReadingIn:
+      $ref: 'components/schemas/reading.yaml#/ReadingIn'
+    Reading:
+      $ref: 'components/schemas/reading.yaml#/Reading'
+    ReadingList:
+      $ref: 'components/schemas/reading.yaml#/ReadingList'
+    AggregatePoint:
+      $ref: 'components/schemas/reading.yaml#/AggregatePoint'
+    AggregateSeries:
+      $ref: 'components/schemas/reading.yaml#/AggregateSeries'
+    CommandType:
+      $ref: 'components/schemas/command.yaml#/CommandType'
+    CommandIn:
+      $ref: 'components/schemas/command.yaml#/CommandIn'
+    CommandStatus:
+      $ref: 'components/schemas/command.yaml#/CommandStatus'
+    Command:
+      $ref: 'components/schemas/command.yaml#/Command'
+    CommandList:
+      $ref: 'components/schemas/command.yaml#/CommandList'
+    CommandAck:
+      $ref: 'components/schemas/command.yaml#/CommandAck'

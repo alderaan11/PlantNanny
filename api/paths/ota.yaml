@@ -1,0 +1,27 @@
+v1/devices/{deviceId}/ota:
+  post:
+    tags: [OTA]
+    summary: Request OTA check/update
+    operationId: handlers.v1.devices.ota.post
+    description: >
+      Typiquement, l'app crée une commande ota_check (ou ota_update) via /commands.
+      Cette route est un raccourci possible.
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              version: { type: string }
+    responses:
+      "201":
+        description: Created OTA command
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/command.yaml#/Command" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }

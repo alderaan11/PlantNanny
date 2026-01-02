@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/repositories/readings_repository.dart';
+import 'package:plant_nanny/data/repositories/readings_repository.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
 
 final dashboardProvider =
     AsyncNotifierProviderFamily<DashboardController, Reading, String>(
-  DashboardController.new,
-);
+      DashboardController.new,
+    );
 
 class DashboardController extends FamilyAsyncNotifier<Reading, String> {
   Timer? _timer;

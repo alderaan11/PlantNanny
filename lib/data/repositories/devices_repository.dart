@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
-import '../../core/api_client_provider.dart';
+import 'package:plant_nanny/core/api_client_provider.dart';
 
 final devicesRepositoryProvider = Provider<DevicesRepository>((ref) {
-  return DevicesRepository(DevicesApi(ref.watch(apiClientProvider)));
+  return DevicesRepository(ref.watch(apiClientProvider).getDevicesApi());
 });
 
 class DevicesRepository {
@@ -11,20 +11,21 @@ class DevicesRepository {
   final DevicesApi _api;
 
   Future<List<Device>> list() async {
-    final res = await _api.v1DevicesGet();
-    return res.items ?? [];
+    final res = await _api.handlersV1DevicesGet();
+    return res.data?.items.toList() ?? [];
   }
 
-  Future<Device> register(String pairingCode, {String? name}) {
-    return _api.v1DevicesRegisterPost(
-      registerDeviceRequest: RegisterDeviceRequest(
-        pairingCode: pairingCode,
-        name: name,
-      ),
+  Future<Device> register(String pairingCode, {String? name}) async {
+    final res = await _api.handlersV1DevicesRegisterPost(
+      registerDeviceRequest: RegisterDeviceRequest((b) {
+        b.pairingCode = pairingCode;
+        if (name != null) b.name = name;
+      }),
     );
+    return res.data!;
   }
 
   Future<void> unregister(String deviceId) {
-    return _api.v1DevicesDeviceIdUnregisterPost(deviceId);
+    return _api.handlersV1DevicesDeviceIdUnregisterPost(deviceId: deviceId);
   }
 }

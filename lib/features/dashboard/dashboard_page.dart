@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dashboard_controller.dart';
-import '../../data/repositories/commands_repository.dart';
+import 'package:plant_nanny/data/repositories/commands_repository.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key, required this.deviceId});
@@ -18,9 +18,9 @@ class DashboardPage extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Text('${r.temperatureC?.toStringAsFixed(1)} °C'),
-              Text('${r.humidityPct?.toStringAsFixed(1)} %'),
-              Text('${r.luminosityPct?.toStringAsFixed(1)} %'),
+              Text('${r.temperatureC.toStringAsFixed(1)} °C'),
+              Text('${r.humidityPct.toStringAsFixed(1)} %'),
+              Text('${r.luminosityPct.toStringAsFixed(1)} %'),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () =>

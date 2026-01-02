@@ -1,0 +1,20 @@
+v1/devices/{deviceId}/stream:
+  get:
+    tags: [Realtime]
+    summary: Server-Sent Events stream (API-only realtime)
+    operationId: handlers.v1.devices.stream.get
+    description: >
+      Optionnel si tu utilises déjà Firestore listeners.
+      Flux SSE d'événements: reading, status, commandUpdate.
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    responses:
+      "200":
+        description: SSE stream (text/event-stream)
+        content:
+          text/event-stream:
+            schema:
+              type: string
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }

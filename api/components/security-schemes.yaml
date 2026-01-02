@@ -1,0 +1,13 @@
+FirebaseJwt:
+  type: http
+  scheme: bearer
+  bearerFormat: JWT
+  description: Firebase Authentication JWT
+  x-bearerInfoFunc: security.firebase_jwt_info_func
+
+DeviceKey:
+  type: apiKey
+  in: header
+  name: x-device-key
+  description: Shared secret key for device authentication
+  x-apikeyInfoFunc: security.device_key_info_func

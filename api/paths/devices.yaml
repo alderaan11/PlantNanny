@@ -1,0 +1,116 @@
+v1/devices:
+  get:
+    tags: [Devices]
+    summary: List devices for current user
+    operationId: handlers.v1.devices.get
+    security: [{ FirebaseJwt: [] }]
+    responses:
+      "200":
+        description: List of devices
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/device.yaml#/DeviceList" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+
+v1/devices:register:
+  post:
+    tags: [Devices]
+    summary: Register (pair) a device to the authenticated user
+    operationId: handlers.v1.devices.register_post
+    description: >
+      Utilisé après appairage BLE/provisioning : l'app obtient un pairingCode depuis l'ESP32,
+      puis appelle cette route pour associer le device au user.
+    security: [{ FirebaseJwt: [] }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "../components/schemas/device.yaml#/RegisterDeviceRequest" }
+          examples:
+            example:
+              value:
+                pairingCode: "ABCD-1234"
+                name: "Mon basilic"
+    responses:
+      "200":
+        description: Registered device
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/device.yaml#/Device" }
+      "400": { $ref: "../components/responses.yaml#/BadRequest" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "409":
+        description: Pairing code invalid/expired or already used
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/common.yaml#/Error" }
+
+v1/devices/{deviceId}:
+  get:
+    tags: [Devices]
+    summary: Get device details
+    operationId: handlers.v1.devices.device_id_get
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    responses:
+      "200":
+        description: Device
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/device.yaml#/Device" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }
+
+  patch:
+    tags: [Devices]
+    summary: Update device (rename, metadata)
+    operationId: handlers.v1.devices.device_id_patch
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: "../components/schemas/device.yaml#/UpdateDeviceRequest" }
+    responses:
+      "200":
+        description: Updated
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/device.yaml#/Device" }
+      "400": { $ref: "../components/responses.yaml#/BadRequest" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }
+
+v1/devices/{deviceId}:unregister:
+  post:
+    tags: [Devices]
+    summary: Unregister device from current user
+    operationId: handlers.v1.devices.device_id_unregister_post
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    responses:
+      "204":
+        description: Unregistered
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }
+
+v1/devices/{deviceId}/status:
+  get:
+    tags: [Devices]
+    summary: Get device status (connectivity, lastSeen, firmware)
+    operationId: handlers.v1.devices.device_id_status_get
+    security: [{ FirebaseJwt: [] }]
+    parameters:
+      - $ref: "../components/parameters.yaml#/DeviceId"
+    responses:
+      "200":
+        description: Status
+        content:
+          application/json:
+            schema: { $ref: "../components/schemas/device.yaml#/DeviceStatus" }
+      "401": { $ref: "../components/responses.yaml#/Unauthorized" }
+      "404": { $ref: "../components/responses.yaml#/NotFound" }

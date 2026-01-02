@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'devices_controller.dart';
-import '../dashboard/dashboard_page.dart';
+import 'package:plant_nanny/features/dashboard/dashboard_page.dart';
 
 class DevicesPage extends ConsumerWidget {
   const DevicesPage({super.key});
@@ -21,8 +21,7 @@ class DevicesPage extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      DashboardPage(deviceId: list[i].deviceId),
+                  builder: (_) => DashboardPage(deviceId: list[i].deviceId),
                 ),
               );
             },

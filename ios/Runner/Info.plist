@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Bluetooth privacy strings -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>We use Bluetooth to find and configure Plant Nanny devices on your Wi‑Fi network.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Used to connect to plant devices in order to send Wi‑Fi credentials.</string>
 </dict>
 </plist>

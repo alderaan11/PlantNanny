@@ -1,4 +1,17 @@
 # PlantNanny
+## Bluetooth Wi‑Fi provisioning (mobile)
+
+This project includes a small Bluetooth helper to find nearby devices and send Wi‑Fi credentials. It uses `flutter_blue_plus`. The device is expected to accept UTF‑8 JSON payloads like `{ "ssid": "...", "password": "..." }` over a writable characteristic.
+
+Usage example:
+
+```dart
+final service = FlutterBluetoothService(nameFilter: 'PlantNanny');
+final endpoints = await service.findNearEndpoints();
+if (endpoints.isNotEmpty) {
+  final ok = await sendWifiCredentials(endpoints.first, 'MySSID', 'MyPass');
+}
+```
 
 A Flutter application for monitoring and caring for your plants using ESP32-based sensors.
 

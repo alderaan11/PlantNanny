@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/auth/auth_notifier.dart';
+
+class LoginPage extends ConsumerStatefulWidget {
+  const LoginPage({super.key});
+
+  @override
+  ConsumerState<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends ConsumerState<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    try {
+      await ref.read(authNotifierProvider.notifier).signIn(email, password);
+      // On success, auth state changes and main will react
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed: ${e.toString()}')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authNotifierProvider);
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Connexion')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                    validator: (v) => (v == null || v.isEmpty) ? 'Email requis' : null,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: const InputDecoration(labelText: 'Mot de passe'),
+                    obscureText: true,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Mot de passe requis' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  auth.isLoading
+                      ? const CircularProgressIndicator()
+                      : SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(onPressed: _submit, child: const Text('Se connecter')),
+                        ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.of(context).pushNamed('/signup'),
+              child: const Text('Créer un compte'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pushNamed('/forgot'),
+              child: const Text('Mot de passe oublié'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -11,21 +11,21 @@ class DevicesRepository {
   final DevicesApi _api;
 
   Future<List<Device>> list() async {
-    final res = await _api.v1DevicesGet();
+    final res = await _api.handlersV1DevicesGet();
     return res.data?.items.toList() ?? [];
   }
 
   Future<Device> register(String pairingCode, {String? name}) async {
-    final res = await _api.v1DevicesRegisterPost(
+    final res = await _api.handlersV1DevicesRegisterPost(
       registerDeviceRequest: RegisterDeviceRequest((b) {
         b.pairingCode = pairingCode;
-        b.name = name;
+        if (name != null) b.name = name;
       }),
     );
     return res.data!;
   }
 
   Future<void> unregister(String deviceId) {
-    return _api.v1DevicesDeviceIdUnregisterPost(deviceId: deviceId);
+    return _api.handlersV1DevicesDeviceIdUnregisterPost(deviceId: deviceId);
   }
 }

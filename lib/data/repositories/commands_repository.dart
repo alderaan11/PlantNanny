@@ -11,7 +11,7 @@ class CommandsRepository {
   final CommandsApi _api;
 
   Future<void> forceReading(String deviceId) {
-    return _api.v1DevicesDeviceIdCommandsPost(
+    return _api.handlersV1DevicesCommandsPost(
       deviceId: deviceId,
       commandIn: CommandIn((b) {
         b.type = CommandType.forceReading;
@@ -20,7 +20,7 @@ class CommandsRepository {
   }
 
   Future<void> pump(String deviceId, int durationMs) {
-    return _api.v1DevicesDeviceIdCommandsPost(
+    return _api.handlersV1DevicesCommandsPost(
       deviceId: deviceId,
       commandIn: CommandIn((b) {
         b.type = CommandType.pumpWater;

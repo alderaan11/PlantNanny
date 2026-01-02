@@ -11,12 +11,12 @@ class ReadingsRepository {
   final ReadingsApi _api;
 
   Future<Reading> last(String deviceId) async {
-    final res = await _api.v1DevicesDeviceIdReadingsLastGet(deviceId: deviceId);
+    final res = await _api.handlersV1DevicesReadingsLastGet(deviceId: deviceId);
     return res.data!;
   }
 
   Future<List<Reading>> history(String deviceId, {int limit = 200}) async {
-    final res = await _api.v1DevicesDeviceIdReadingsGet(
+    final res = await _api.handlersV1DevicesReadingsGet(
       deviceId: deviceId,
       limit: limit,
       order: 'desc',

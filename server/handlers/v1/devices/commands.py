@@ -1,18 +1,30 @@
 """Commands handlers - /v1/devices/{deviceId}/commands"""
 from datetime import datetime, timezone
+import logging
 
 from storage import devices_store, commands_store, generate_id
+
+logger = logging.getLogger("plant_nanny.commands")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 
 def post(device_id: str, body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
     """Create a command for a device (force reading, pump, etc.)."""
     info = token_info or user or {}
     user_uid = info.get("uid", "")
-    
+
+    logger.info(f"Create command request - device={device_id} user_uid={user_uid}")
+
     device = devices_store.get(device_id)
     if not device or device.get("ownerUid") != user_uid:
+        logger.info(f"Device lookup failed. device_exists={bool(device)} ownerUid={device.get('ownerUid') if device else None} user_uid={user_uid}")
         return {"error": "Device not found"}, 404
-    
+
     now = datetime.now(timezone.utc).isoformat()
     command_id = generate_id()
     

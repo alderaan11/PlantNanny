@@ -48,8 +48,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 1,
+              color: Colors.green.shade50,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -58,8 +59,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   children: [
                     Column(
                       children: [
-                        Icon(Icons.local_florist, size: 48, color: cs.primary),
-                        const SizedBox(height: 8),
+                        Icon(Icons.local_florist, size: 64, color: cs.primary),
+                        const SizedBox(height: 12),
                         Text('PlantNanny', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 12),
                         Text('Gérez l\'arrosage de vos plantes', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),

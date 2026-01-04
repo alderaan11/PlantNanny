@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/devices/devices_page.dart';
+import 'features/devices/add_plant_page.dart';
+import 'data/repositories/devices_repository_fake.dart';
+import 'data/repositories/devices_repository.dart';
+
 import 'features/auth/login_page.dart';
 import 'features/auth/signup_page.dart';
 import 'features/auth/forgot_password_page.dart';
@@ -8,8 +12,12 @@ import 'features/auth/main_page.dart';
 import 'data/auth/auth_notifier.dart';
 import 'data/repositories/readings_repository.dart';
 import 'data/repositories/readings_repository_fake.dart';
+import 'data/repositories/commands_repository.dart';
+import 'data/repositories/commands_repository_base.dart';
+import 'data/repositories/commands_repository_fake.dart';
 
 const bool useFakeReadings = true;
+const bool useFakeDevices = true; // Set to true for local development to avoid hitting the server
 
 void main() {
   runApp(ProviderScope(
@@ -18,6 +26,16 @@ void main() {
         // Use the fake implementation during development
         readingsRepositoryProvider.overrideWithProvider(
           Provider<ReadingsRepository>((_) => FakeReadingsRepository()),
+        ),
+      if (useFakeDevices)
+        // Use a fake devices repo for local development (no server required)
+        devicesRepositoryProvider.overrideWithProvider(
+          Provider((_) => FakeDevicesRepository()),
+        ),
+      if (useFakeDevices)
+        // Use fake commands as well when using fake devices (local dev)
+        commandsRepositoryProvider.overrideWithProvider(
+          Provider<CommandsRepositoryBase>((_) => FakeCommandsRepository()),
         ),
     ],
     child: const PlantNannyApp(),
@@ -72,6 +90,7 @@ class PlantNannyApp extends ConsumerWidget {
         '/forgot': (_) => const ForgotPasswordPage(),
         '/main': (_) => const MainPage(),
         '/devices': (_) => const DevicesPage(),
+        '/devices/add': (_) => const AddPlantPage(),
       },
       // Show MainPage when signed in, otherwise LoginPage. Keep DevicesPage route available.
       home: authState.isSignedIn ? const MainPage() : const LoginPage(),

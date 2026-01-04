@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dashboard_controller.dart';
 import 'package:plant_nanny/data/repositories/commands_repository.dart';
 import 'dashboard_providers.dart';
+import 'package:plant_nanny/data/providers/device_metadata_provider.dart';
+import 'package:plant_nanny/data/models/device_metadata.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key, required this.deviceId});
@@ -16,7 +18,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   TimeRange _selectedRange = TimeRange.day;
 
   Future<void> _showPumpDialog() async {
-    final controller = TextEditingController(text: '5000');
+    final meta = ref.watch(deviceMetadataProvider)[widget.deviceId];
+    final initial = meta?.baseDoseMs.toString() ?? '5000';
+    final controller = TextEditingController(text: initial);
     final result = await showDialog<int?>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -34,9 +38,70 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
 
     if (result != null && result > 0) {
-      await ref.read(commandsRepositoryProvider).pump(widget.deviceId, result);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Arrosage envoyé')));
+      try {
+        await ref.read(commandsRepositoryProvider).pump(widget.deviceId, result);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Arrosage envoyé')));
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur en envoyant la commande: ${e.toString()}')));
+      }
     }
+  }
+
+  Future<void> _showEditMetadataSheet() async {
+    final existing = ref.read(deviceMetadataProvider)[widget.deviceId];
+    final meta = existing?.copyWith() ?? DeviceMetadata(baseDoseMs: 5000);
+    final plantController = TextEditingController(text: meta.plantType ?? '');
+    final doseController = TextEditingController(text: meta.baseDoseMs.toString());
+    final commentsController = TextEditingController(text: meta.comments ?? '');
+    bool isOutdoor = meta.isOutdoor;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Modifier le capteur', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            TextFormField(controller: plantController, decoration: const InputDecoration(labelText: 'Type de plante')),
+            const SizedBox(height: 8),
+            StatefulBuilder(
+              builder: (ctx, setState) => SwitchListTile(
+                value: isOutdoor,
+                title: const Text('Extérieur'),
+                onChanged: (v) => setState(() => isOutdoor = v),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextFormField(controller: doseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Dose de base (ms)')),
+            const SizedBox(height: 8),
+            TextFormField(controller: commentsController, decoration: const InputDecoration(labelText: 'Commentaires'), minLines: 2, maxLines: 4),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                final newMeta = DeviceMetadata(
+                  plantType: plantController.text.trim().isEmpty ? null : plantController.text.trim(),
+                  isOutdoor: isOutdoor,
+                  baseDoseMs: int.tryParse(doseController.text.trim()) ?? meta.baseDoseMs,
+                  comments: commentsController.text.trim().isEmpty ? null : commentsController.text.trim(),
+                );
+                ref.read(deviceMetadataProvider.notifier).setMetadata(widget.deviceId, newMeta);
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Capteur modifié')));
+              },
+              child: const Text('Enregistrer'),
+            ),
+            const SizedBox(height: 12),
+          ]),
+        ),
+      ),
+    );
+
+    plantController.dispose();
+    doseController.dispose();
+    commentsController.dispose();
   }
 
   @override
@@ -46,43 +111,91 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final series = ref.watch(dashboardAggregatedProvider(seriesReq));
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.deviceId)),
+      appBar: AppBar(
+        title: Text(widget.deviceId),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_horiz),
+            onSelected: (v) async {
+              if (v == 'edit') {
+                await _showEditMetadataSheet();
+              }
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(value: 'edit', child: Text('Modifier le capteur')),
+            ],
+          ),
+        ],
+      ),
       body: reading.when(
         data: (r) => Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                // Left: compact device stats (allow truncation)
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${r.temperatureC.toStringAsFixed(1)} °C', style: Theme.of(context).textTheme.headlineSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text('Hum: ${r.humidityPct.toStringAsFixed(1)} % • Lum: ${r.luminosityPct.toStringAsFixed(1)} %', maxLines: 1, overflow: TextOverflow.ellipsis),
+              Card(
+                color: Theme.of(context).colorScheme.secondaryContainer.withOpacity(0.4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    // Left: compact device stats (allow truncation)
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${r.temperatureC.toStringAsFixed(1)} °C', style: Theme.of(context).textTheme.headlineSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text('Hum: ${r.humidityPct.toStringAsFixed(1)} % • Lum: ${r.luminosityPct.toStringAsFixed(1)} %', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ]),
+                    ),
+                    // Right: actions - use Wrap so buttons can wrap instead of causing overflow
+                    Flexible(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Wrap(spacing: 8, alignment: WrapAlignment.end, children: [
+                          ElevatedButton(
+                            onPressed: () async {
+                              try {
+                                await ref.read(commandsRepositoryProvider).forceReading(widget.deviceId);
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Demande de captage envoyée')));
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
+                              }
+                            },
+                            child: const Text('Forcer captage'),
+                          ),
+                          ElevatedButton(onPressed: _showPumpDialog, child: const Text('Arroser')),
+                        ]),
+                      ),
+                    )
                   ]),
                 ),
-                // Right: actions - use Wrap so buttons can wrap instead of causing overflow
-                Flexible(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Wrap(spacing: 8, alignment: WrapAlignment.end, children: [
-                      ElevatedButton(onPressed: () => ref.read(commandsRepositoryProvider).forceReading(widget.deviceId), child: const Text('Forcer captage')),
-                      ElevatedButton(onPressed: _showPumpDialog, child: const Text('Arroser')),
-                    ]),
-                  ),
-                )
-              ]),
+              ),
               const SizedBox(height: 16),
 
               // Range selector
-              Wrap(spacing: 8, children: TimeRange.values.map((tr) {
-                final label = tr == TimeRange.day ? '24h' : tr == TimeRange.week ? '7j' : tr == TimeRange.month ? '30j' : 'Année';
-                return ChoiceChip(
-                  label: Text(label),
-                  selected: _selectedRange == tr,
-                  onSelected: (s) => setState(() => _selectedRange = tr),
-                );
-              }).toList()),
+              Card(
+                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: TimeRange.values.map((tr) {
+                      final label = tr == TimeRange.day
+                          ? '24h'
+                          : tr == TimeRange.week
+                              ? '7j'
+                              : tr == TimeRange.month
+                                  ? '30j'
+                                  : 'Année';
+                      return ChoiceChip(
+                        label: Text(label),
+                        selected: _selectedRange == tr,
+                        onSelected: (s) => setState(() => _selectedRange = tr),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 12),
 
@@ -92,30 +205,35 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   data: (points) {
                     if (points.isEmpty) return const Center(child: Text('Aucune donnée pour cette période'));
                     final temps = points.map((p) => p['temperature'] as double).toList();
-                    return Column(children: [
-                      SizedBox(height: 180, child: _SimpleLineChart(values: temps)),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: points.length,
-                          itemBuilder: (_, i) {
-                            final p = points[i];
-                            final ts = p['ts'] as DateTime;
-                            return ListTile(
-                              title: Text('${p['temperature']} °C • ${p['humidity']} % • ${p['luminosity']} %'),
-                              subtitle: Text(ts.toLocal().toString()),
-                            );
-                          },
-                        ),
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(children: [
+                          SizedBox(height: 180, child: _SimpleLineChart(values: temps)),
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: points.length,
+                              itemBuilder: (_, i) {
+                                final p = points[i];
+                                final ts = p['ts'] as DateTime;
+                                return ListTile(
+                                  title: Text('${p['temperature']} °C • ${p['humidity']} % • ${p['luminosity']} %'),
+                                  subtitle: Text(ts.toLocal().toString()),
+                                );
+                              },
+                            ),
+                          ),
+                        ]),
                       ),
-                    ]);
+                    );
                   },
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Erreur: $e')),
                 ),
               ),
 
-              Center(child: TextButton(onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AllDataPage(deviceId: widget.deviceId))), child: const Text('Voir toutes les données'))),
             ],
           ),
         ),

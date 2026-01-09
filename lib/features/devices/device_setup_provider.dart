@@ -112,7 +112,9 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       final connected = await _bluetoothService.connect(device);
       
       if (connected) {
-        state = state.copyWith(state: DeviceSetupState.enterPin);
+        // Skip PIN entry - PIN is handled by OS BLE pairing dialog during connect()
+        // Go directly to WiFi selection
+        state = state.copyWith(state: DeviceSetupState.selectWifi);
       } else {
         state = state.copyWith(
           state: DeviceSetupState.error,

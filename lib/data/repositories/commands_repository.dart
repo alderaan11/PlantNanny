@@ -26,12 +26,12 @@ class CommandsRepository implements CommandsRepositoryBase {
   }
 
   @override
-  Future<void> pump(String deviceId, int durationMs) {
+  Future<void> pump(String deviceId, int durationSec) {
     return _api.handlersV1DevicesCommandsPost(
       deviceId: deviceId,
       commandIn: CommandIn((CommandInBuilder b) {
         b.type = CommandType.pumpWater;
-        b.durationMs = durationMs;
+        b.durationMs = durationSec * 1000; // Convertir secondes en millisecondes pour l'API
       }),
     );
   }

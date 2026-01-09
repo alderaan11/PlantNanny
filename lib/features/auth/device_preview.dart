@@ -61,7 +61,7 @@ class DevicePreview extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Row(children: [
-                        const Icon(Icons.opacity, size: 18, color: Colors.blue),
+                        const Icon(Icons.opacity, size: 18, color: Color(0xFF606C38)),
                         const SizedBox(width: 6),
                         Expanded(child: Text('${hum.toStringAsFixed(0)} %', overflow: TextOverflow.ellipsis, maxLines: 1)),
                         const SizedBox(width: 12),

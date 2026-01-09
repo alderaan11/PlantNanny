@@ -50,7 +50,7 @@ class DevicesPage extends ConsumerWidget {
                   final parts = <String>[];
                   if (meta.plantType != null) parts.add(meta.plantType!);
                   parts.add(meta.isOutdoor ? 'Extérieur' : 'Intérieur');
-                  parts.add('${meta.baseDoseMs} ms');
+                  parts.add('${meta.baseDoseSec} sec');
                   return parts.join(' • ');
                 }
                 final ls = device.lastSeen != null ? 'Dernière vue: ${device.lastSeen}' : null;
@@ -120,9 +120,9 @@ class DevicesPage extends ConsumerWidget {
   }
 
   Future<void> _showEditMetadataSheet(BuildContext context, WidgetRef ref, String deviceId, DeviceMetadata? existing) async {
-    final meta = existing?.copyWith() ?? DeviceMetadata(baseDoseMs: 5000);
+    final meta = existing?.copyWith() ?? DeviceMetadata(baseDoseSec: 5);
     final plantController = TextEditingController(text: meta.plantType ?? '');
-    final doseController = TextEditingController(text: meta.baseDoseMs.toString());
+    final doseController = TextEditingController(text: meta.baseDoseSec.toString());
     final commentsController = TextEditingController(text: meta.comments ?? '');
     bool isOutdoor = meta.isOutdoor;
 
@@ -140,7 +140,7 @@ class DevicesPage extends ConsumerWidget {
             const SizedBox(height: 8),
             StatefulBuilder(builder: (ctx, setState) => SwitchListTile(value: isOutdoor, title: const Text('Extérieur'), onChanged: (v) => setState(() => isOutdoor = v))),
             const SizedBox(height: 8),
-            TextFormField(controller: doseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Dose de base (ms)')),
+            TextFormField(controller: doseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Dose de base (sec)')),
             const SizedBox(height: 8),
             TextFormField(controller: commentsController, decoration: const InputDecoration(labelText: 'Commentaires'), minLines: 2, maxLines: 4),
             const SizedBox(height: 12),
@@ -148,7 +148,7 @@ class DevicesPage extends ConsumerWidget {
               final newMeta = DeviceMetadata(
                 plantType: plantController.text.trim().isEmpty ? null : plantController.text.trim(),
                 isOutdoor: isOutdoor,
-                baseDoseMs: int.tryParse(doseController.text.trim()) ?? meta.baseDoseMs,
+                baseDoseSec: int.tryParse(doseController.text.trim()) ?? meta.baseDoseSec,
                 comments: commentsController.text.trim().isEmpty ? null : commentsController.text.trim(),
               );
               ref.read(deviceMetadataProvider.notifier).setMetadata(deviceId, newMeta);

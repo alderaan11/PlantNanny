@@ -51,7 +51,7 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
 
     final pairing = _isBluetoothFlow ? (widget.deviceId ?? '') : _pairingController.text.trim();
     final name = _nameController.text.trim().isEmpty ? null : _nameController.text.trim();
-    final baseMs = int.tryParse(_doseController.text.trim()) ?? 5000;
+    final baseSec = int.tryParse(_doseController.text.trim()) ?? 5;
 
     try {
       final device = await ref.read(devicesRepositoryProvider).register(pairing, name: name);
@@ -60,7 +60,7 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
       final meta = DeviceMetadata(
         plantType: _plantType,
         isOutdoor: _isOutdoor,
-        baseDoseMs: baseMs,
+        baseDoseSec: baseSec,
         comments: _commentsController.text.trim().isEmpty ? null : _commentsController.text.trim(),
       );
       ref.read(deviceMetadataProvider.notifier).setMetadata(device.deviceId, meta);
@@ -143,7 +143,7 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
 
                     TextFormField(
                       controller: _doseController,
-                      decoration: const InputDecoration(labelText: 'Dose de base (ms)'),
+                      decoration: const InputDecoration(labelText: 'Dose de base (sec)'),
                       keyboardType: TextInputType.number,
                       validator: (v) => (v == null || int.tryParse(v) == null) ? 'Entrer un nombre' : null,
                     ),

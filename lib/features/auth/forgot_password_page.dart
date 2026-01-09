@@ -45,6 +45,7 @@ class _ForgotPasswordPageState extends ConsumerState<ForgotPasswordPage> {
             constraints: const BoxConstraints(maxWidth: 420),
             child: Card(
               elevation: 4,
+              color: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),

@@ -13,7 +13,7 @@ class FakeCommandsRepository implements CommandsRepositoryBase {
   }
 
   @override
-  Future<void> pump(String deviceId, int durationMs) async {
+  Future<void> pump(String deviceId, int durationSec) async {
     await Future.delayed(const Duration(seconds: 1));
     return;
   }

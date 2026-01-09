@@ -16,7 +16,7 @@ class ArrosagePage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Arroser le capteur'),
-        content: Text('Arroser $deviceId pendant $duration ms ?'),
+        content: Text('Arroser $deviceId pendant $duration sec ?'),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Annuler')),
           TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Arroser')),
@@ -55,7 +55,7 @@ class ArrosagePage extends ConsumerWidget {
     try {
       final results = await Future.wait(devices.map((d) async {
         final deviceId = d.deviceId;
-        final duration = per[deviceId] ?? ref.read(deviceMetadataProvider)[deviceId]?.baseDoseMs ?? 5000;
+        final duration = per[deviceId] ?? ref.read(deviceMetadataProvider)[deviceId]?.baseDoseSec ?? 5;
         try {
           await ref.read(commandsRepositoryProvider).pump(deviceId, duration);
           return null;
@@ -97,7 +97,7 @@ class ArrosagePage extends ConsumerWidget {
                   itemBuilder: (ctx, i) {
                     final d = list[i];
                     final curMap = ref.watch(perDevicePumpDurationProvider);
-                    final curVal = curMap[d.deviceId] ?? ref.read(deviceMetadataProvider)[d.deviceId]?.baseDoseMs ?? 5000;
+                    final curVal = curMap[d.deviceId] ?? ref.read(deviceMetadataProvider)[d.deviceId]?.baseDoseSec ?? 5;
                     return _SliderListTile(
                       device: d,
                       currentValue: curVal,
@@ -108,7 +108,7 @@ class ArrosagePage extends ConsumerWidget {
                         final meta = ref.read(deviceMetadataProvider)[d.deviceId];
                         ref.read(deviceMetadataProvider.notifier).setMetadata(
                           d.deviceId, 
-                          (meta?.copyWith(baseDoseMs: v)) ?? (DeviceMetadata(baseDoseMs: v))
+                          (meta?.copyWith(baseDoseSec: v)) ?? (DeviceMetadata(baseDoseSec: v))
                         );
                       },
                       onPump: () => _pumpDevice(context, ref, d.deviceId, curVal),
@@ -118,7 +118,14 @@ class ArrosagePage extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                ElevatedButton(onPressed: () => _pumpAll(context, ref, list), child: const Text('Arroser tous')),
+                ElevatedButton(
+                  onPressed: () => _pumpAll(context, ref, list),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF606C38), // Vert olive (même couleur que les FAB)
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Arroser tous'),
+                ),
               ])
             ]),
           );
@@ -156,15 +163,23 @@ class _SliderListTileState extends State<_SliderListTile> {
   @override
   void initState() {
     super.initState();
-    _sliderValue = widget.currentValue.toDouble().clamp(100, 15000);
+    _sliderValue = widget.currentValue.toDouble().clamp(1, 3600);
   }
 
   @override
   void didUpdateWidget(_SliderListTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.currentValue != widget.currentValue) {
-      _sliderValue = widget.currentValue.toDouble().clamp(100, 15000);
+      _sliderValue = widget.currentValue.toDouble().clamp(1, 3600);
     }
+  }
+
+  String _formatDuration(int seconds) {
+    if (seconds >= 60) {
+      final minutes = (seconds / 60).round();
+      return '$minutes min';
+    }
+    return '$seconds sec';
   }
 
   @override
@@ -175,9 +190,9 @@ class _SliderListTileState extends State<_SliderListTile> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Slider(
-            min: 100,
-            max: 15000,
-            divisions: 150,
+            min: 1,
+            max: 3600,
+            divisions: 359,
             value: _sliderValue,
             onChanged: (v) {
               setState(() {
@@ -189,11 +204,15 @@ class _SliderListTileState extends State<_SliderListTile> {
               widget.onChangeEnd(v.round());
             },
           ),
-          Text('${widget.currentValue} ms', style: Theme.of(context).textTheme.bodySmall),
+          Text(_formatDuration(widget.currentValue), style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
       trailing: ElevatedButton(
         onPressed: widget.onPump,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF606C38), // Vert olive (même couleur que les FAB)
+          foregroundColor: Colors.white,
+        ),
         child: const Text('Arroser'),
       ),
     );

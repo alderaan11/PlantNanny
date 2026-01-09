@@ -2,18 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/auth/auth_notifier.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
+import 'server_config_provider.dart';
 
-// Si tu as un provider de baseUrl ailleurs, garde ton import réel ici.
-// import '../data/auth/auth_notifier.dart';  // <-- seulement si tu en as besoin
-
-/// Exemple : base URL par plateforme (à adapter à ton projet)
+/// The base URL provider now uses the configurable server URL
 final baseUrlProvider = Provider<String>((ref) {
-  // Android emulator ne peut pas accéder à localhost du host -> 10.0.2.2
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:8080';
-  }
-  // iOS simulator / macOS / web
-  return 'http://localhost:8080';
+  return ref.watch(serverConfigProvider);
 });
 
 /// Le provider principal du client OpenAPI

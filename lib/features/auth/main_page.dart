@@ -34,17 +34,39 @@ class _MainPageState extends ConsumerState<MainPage> {
           ArrosagePage(),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) {
-          setState(() => _currentIndex = i);
-          _pageController.animateToPage(i, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-          BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Capteurs'),
-          BottomNavigationBarItem(icon: Icon(Icons.water_damage), label: 'Arrosage'),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+          border: Border(
+            top: BorderSide(
+              color: const Color(0xFF606C38).withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          currentIndex: _currentIndex,
+          selectedItemColor: const Color(0xFF606C38),
+          unselectedItemColor: Colors.grey,
+          onTap: (i) {
+            setState(() => _currentIndex = i);
+            _pageController.animateToPage(i, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+          },
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+            BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Capteurs'),
+            BottomNavigationBarItem(icon: Icon(Icons.water_damage), label: 'Arrosage'),
+          ],
+        ),
       ),
       // show logout FAB only on the Home tab
       floatingActionButton: _currentIndex == 0

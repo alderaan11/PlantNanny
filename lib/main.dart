@@ -51,26 +51,26 @@ class PlantNannyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
 
-    // Couleurs modernes vert/gris/blanc
+    // Palette de couleurs naturelles
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF4CAF50), // Vert moderne
+      seedColor: const Color(0xFF606C38), // Vert olive
       brightness: Brightness.light,
-      secondary: const Color(0xFF78909C), // Gris bleuté
+      secondary: const Color(0xFFDDA15E), // Orange doré
     );
 
     final theme = ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFFAFAFA), // Gris très clair / blanc cassé
+      scaffoldBackgroundColor: const Color(0xFFEDEDE9), // Gris beige clair
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFF606C38), // Vert olive
+        foregroundColor: const Color(0xFFEDEDE9), // Gris beige clair pour le texte
         elevation: 0,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: const Color(0xFF606C38), // Vert olive
+          foregroundColor: const Color(0xFFEDEDE9), // Gris beige clair
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
@@ -82,7 +82,7 @@ class PlantNannyApp extends ConsumerWidget {
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300, width: 2),
+          borderSide: const BorderSide(color: Color(0xFFDDA15E), width: 2),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -90,14 +90,14 @@ class PlantNannyApp extends ConsumerWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.primary, width: 2.5),
+          borderSide: const BorderSide(color: Color(0xFF606C38), width: 2.5),
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-        labelStyle: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+        labelStyle: const TextStyle(fontSize: 16, color: Color(0xFF283618)),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: colorScheme.primary,
+          foregroundColor: const Color(0xFF606C38),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),

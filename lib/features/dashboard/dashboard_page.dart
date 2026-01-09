@@ -18,16 +18,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _showPumpDialog() async {
     final meta = ref.watch(deviceMetadataProvider)[widget.deviceId];
-    final initial = meta?.baseDoseMs.toString() ?? '5000';
+    final initial = meta?.baseDoseSec.toString() ?? '5';
     final controller = TextEditingController(text: initial);
     final result = await showDialog<int?>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Arroser - durée (ms)'),
+        title: const Text('Arroser - durée (sec)'),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Durée en ms'),
+          decoration: const InputDecoration(labelText: 'Durée en secondes'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Annuler')),
@@ -48,9 +48,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _showEditMetadataSheet() async {
     final existing = ref.read(deviceMetadataProvider)[widget.deviceId];
-    final meta = existing?.copyWith() ?? DeviceMetadata(baseDoseMs: 5000);
+    final meta = existing?.copyWith() ?? DeviceMetadata(baseDoseSec: 5);
     final nameController = TextEditingController(text: meta.name ?? '');
-    final doseController = TextEditingController(text: meta.baseDoseMs.toString());
+    final doseController = TextEditingController(text: meta.baseDoseSec.toString());
     final commentsController = TextEditingController(text: meta.comments ?? '');
     bool isOutdoor = meta.isOutdoor;
     String? selectedPlantType = meta.plantType;
@@ -140,7 +140,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               ),
             ),
             const SizedBox(height: 8),
-            TextFormField(controller: doseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Dose de base (ms)')),
+            TextFormField(controller: doseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Dose de base (sec)')),
             const SizedBox(height: 8),
             TextFormField(controller: commentsController, decoration: const InputDecoration(labelText: 'Commentaires'), minLines: 2, maxLines: 4),
             const SizedBox(height: 12),
@@ -150,7 +150,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   name: nameController.text.trim().isEmpty ? null : nameController.text.trim(),
                   plantType: selectedPlantType?.trim().isEmpty ?? true ? null : selectedPlantType?.trim(),
                   isOutdoor: isOutdoor,
-                  baseDoseMs: int.tryParse(doseController.text.trim()) ?? meta.baseDoseMs,
+                  baseDoseSec: int.tryParse(doseController.text.trim()) ?? meta.baseDoseSec,
                   comments: commentsController.text.trim().isEmpty ? null : commentsController.text.trim(),
                 );
                 ref.read(deviceMetadataProvider.notifier).setMetadata(widget.deviceId, newMeta);
@@ -325,7 +325,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
               // Bouton pour accéder à toutes les données
               Card(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.6),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: InkWell(
                   onTap: () {
@@ -345,7 +345,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         SizedBox(width: 8),
                         Text(
                           'Voir toutes les données',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),

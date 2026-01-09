@@ -10,12 +10,12 @@ class PerDevicePumpNotifier extends StateNotifier<Map<String, int>> {
     final explicit = state[deviceId];
     if (explicit != null) return explicit;
     final meta = ref.read(deviceMetadataProvider)[deviceId];
-    if (meta != null && meta.baseDoseMs != null) return meta.baseDoseMs;
+    if (meta != null && meta.baseDoseSec != null) return meta.baseDoseSec;
     return ref.read(globalPumpDurationProvider);
   }
 
-  void setDurationFor(String deviceId, int ms) {
-    state = {...state, deviceId: ms};
+  void setDurationFor(String deviceId, int sec) {
+    state = {...state, deviceId: sec};
   }
 }
 

@@ -17,8 +17,8 @@ class DevicesPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Mes capteurs')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).pushNamed('/devices/add'),
-        child: const Icon(Icons.add),
+        onPressed: () => Navigator.of(context).pushNamed('/devices/add-bluetooth'),
+        child: const Icon(Icons.add, size: 32),
       ),
       body: devices.when(
         data: (list) {
@@ -28,10 +28,11 @@ class DevicesPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('Aucun appareil trouvé.'),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pushNamed('/devices/add'),
-                    child: const Text('Ajouter plante'),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pushNamed('/devices/add-bluetooth'),
+                    icon: const Icon(Icons.bluetooth),
+                    label: const Text('Ajouter un appareil'),
                   ),
                 ],
               ),
@@ -52,7 +53,6 @@ class DevicesPage extends ConsumerWidget {
                   parts.add('${meta.baseDoseMs} ms');
                   return parts.join(' • ');
                 }
-                // fallback to lastSeen or deviceId
                 final ls = device.lastSeen != null ? 'Dernière vue: ${device.lastSeen}' : null;
                 return ls ?? device.deviceId;
               }
@@ -95,9 +95,9 @@ class DevicesPage extends ConsumerWidget {
                         }
                       }
                     },
-                    itemBuilder: (ctx) => [
-                      const PopupMenuItem(value: 'edit', child: Text('Éditer')),
-                      const PopupMenuItem(value: 'remove', child: Text('Supprimer')),
+                    itemBuilder: (ctx) => const [
+                      PopupMenuItem(value: 'edit', child: Text('Éditer')),
+                      PopupMenuItem(value: 'remove', child: Text('Supprimer')),
                     ],
                   ),
                   onTap: () {

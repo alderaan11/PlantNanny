@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bluetooth_service.dart';
-import 'fake_bluetooth_service.dart';
+import '../../core/api_client_provider.dart';
+import 'real_bluetooth_service.dart';
+import 'package:plant_nanny_api/plant_nanny_api.dart';
 
 /// Provider pour le service Bluetooth
 final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
-  return FakeBluetoothService();
+  return RealBluetoothService();
 });
 
 /// États possibles du flux d'ajout d'appareil
@@ -64,8 +65,9 @@ class DeviceSetupModel {
 /// Notifier pour gérer le flux d'ajout d'appareil
 class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
   final BluetoothService _bluetoothService;
+  final PlantNannyApi _api;
 
-  DeviceSetupNotifier(this._bluetoothService) : super(DeviceSetupModel()) {
+  DeviceSetupNotifier(this._bluetoothService, this._api) : super(DeviceSetupModel()) {
     _startScan();
   }
 
@@ -174,11 +176,12 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       await state.selectedDevice?.send(wifiData);
       
       final response = await state.selectedDevice?.recv(
-        timeout: const Duration(seconds: 5),
+        timeout: const Duration(seconds: 30),
       );
 
       if (response == 'WIFI_CONFIGURED') {
-        state = state.copyWith(state: DeviceSetupState.success);
+        // WiFi configured, now get IP address and register with server
+        await _registerDeviceWithServer();
       } else {
         state = state.copyWith(
           state: DeviceSetupState.error,
@@ -190,6 +193,55 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
         state: DeviceSetupState.error,
         errorMessage: 'Erreur lors de l\'envoi des informations WiFi: $e',
       );
+    }
+  }
+
+  /// Register the device with the server after WiFi config
+  Future<void> _registerDeviceWithServer() async {
+    try {
+      final endpoint = state.selectedDevice;
+      if (endpoint == null || endpoint is! RealBluetoothEndpoint) {
+        state = state.copyWith(state: DeviceSetupState.success);
+        return;
+      }
+
+      // Get IP address from ESP32
+      final ipAddress = await endpoint.waitForIpAddress(timeout: const Duration(seconds: 15));
+      
+      // Get device ID (used as pairing code)
+      final deviceId = await endpoint.getDeviceId();
+      
+      if (deviceId == null) {
+        // No device ID available, still succeed but without server registration
+        state = state.copyWith(state: DeviceSetupState.success);
+        return;
+      }
+
+      // Register device with server
+      try {
+        final registerRequest = RegisterDeviceRequest((b) => b
+          ..pairingCode = deviceId
+          ..name = endpoint.name ?? 'PlantNanny Device'
+          ..ipAddress = ipAddress
+        );
+
+        final response = await _api.getDevicesApi().handlersV1DevicesRegisterPost(
+          registerDeviceRequest: registerRequest,
+        );
+
+        // Send server-assigned device ID back to ESP32
+        if (response.data?.deviceId != null) {
+          await endpoint.sendServerId(response.data!.deviceId!);
+        }
+      } catch (apiError) {
+        // API error - device may already be registered, continue anyway
+        // Log the error but don't fail the setup
+      }
+
+      state = state.copyWith(state: DeviceSetupState.success);
+    } catch (e) {
+      // Registration failed, but WiFi is configured so still succeed
+      state = state.copyWith(state: DeviceSetupState.success);
     }
   }
 
@@ -213,5 +265,6 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 /// Provider pour le notifier
 final deviceSetupProvider = StateNotifierProvider<DeviceSetupNotifier, DeviceSetupModel>((ref) {
   final bluetoothService = ref.watch(bluetoothServiceProvider);
-  return DeviceSetupNotifier(bluetoothService);
+  final api = ref.watch(apiClientProvider);
+  return DeviceSetupNotifier(bluetoothService, api);
 });

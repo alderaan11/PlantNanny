@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'features/devices/devices_page.dart';
 import 'features/devices/add_plant_page.dart';
 import 'features/devices/add_device_bluetooth_page.dart';
@@ -17,13 +18,18 @@ import 'data/repositories/readings_repository_fake.dart';
 import 'data/repositories/commands_repository.dart';
 import 'data/repositories/commands_repository_base.dart';
 import 'data/repositories/commands_repository_fake.dart';
+import 'core/server_config_provider.dart';
 
-const bool useFakeReadings = true;
-const bool useFakeDevices = true; // Set to true for local development to avoid hitting the server
+const bool useFakeReadings = false;  // Set to false to use real MQTT data from server
+const bool useFakeDevices = false;   // Set to false to use real devices from server
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  
   runApp(ProviderScope(
     overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
       if (useFakeReadings)
         // Use the fake implementation during development
         readingsRepositoryProvider.overrideWithProvider(

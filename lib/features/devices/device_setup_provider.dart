@@ -30,6 +30,7 @@ class DeviceSetupModel {
   final String? ssid;
   final String? wifiPassword;
   final String? errorMessage;
+  final List<String> wifiNetworks;
 
   DeviceSetupModel({
     this.state = DeviceSetupState.scanning,
@@ -39,6 +40,7 @@ class DeviceSetupModel {
     this.ssid,
     this.wifiPassword,
     this.errorMessage,
+    this.wifiNetworks = const [],
   });
 
   DeviceSetupModel copyWith({
@@ -49,6 +51,7 @@ class DeviceSetupModel {
     String? ssid,
     String? wifiPassword,
     String? errorMessage,
+    List<String>? wifiNetworks,
   }) {
     return DeviceSetupModel(
       state: state ?? this.state,
@@ -58,6 +61,7 @@ class DeviceSetupModel {
       ssid: ssid ?? this.ssid,
       wifiPassword: wifiPassword ?? this.wifiPassword,
       errorMessage: errorMessage ?? this.errorMessage,
+      wifiNetworks: wifiNetworks ?? this.wifiNetworks,
     );
   }
 }
@@ -112,9 +116,20 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       final connected = await _bluetoothService.connect(device);
       
       if (connected) {
+        // Fetch available WiFi networks from the device
+        List<String> networks = [];
+        if (device is RealBluetoothEndpoint) {
+          // Wait a moment for ESP32 to scan networks
+          await Future.delayed(const Duration(seconds: 2));
+          networks = await device.getAvailableWifiNetworks();
+        }
+        
         // Skip PIN entry - PIN is handled by OS BLE pairing dialog during connect()
         // Go directly to WiFi selection
-        state = state.copyWith(state: DeviceSetupState.selectWifi);
+        state = state.copyWith(
+          state: DeviceSetupState.selectWifi,
+          wifiNetworks: networks,
+        );
       } else {
         state = state.copyWith(
           state: DeviceSetupState.error,

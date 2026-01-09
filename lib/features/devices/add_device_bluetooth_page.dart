@@ -240,16 +240,11 @@ class _PinEntryViewState extends ConsumerState<_PinEntryView> {
 class _WifiSelectionView extends ConsumerWidget {
   const _WifiSelectionView();
 
-  // Liste simulée de réseaux WiFi
-  final List<String> _networks = const [
-    'WiFi-Home',
-    'WiFi-Office',
-    'MyNetwork',
-    'Guest-Network',
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final setupState = ref.watch(deviceSetupProvider);
+    final networks = setupState.wifiNetworks;
+    
     return Column(
       children: [
         Padding(
@@ -263,32 +258,104 @@ class _WifiSelectionView extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'L\'appareil se connectera à ce réseau',
+                'Réseaux détectés par l\'appareil',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ],
           ),
         ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: _networks.length,
-            itemBuilder: (context, index) {
-              final network = _networks[index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: ListTile(
-                  leading: const Icon(Icons.wifi, color: Colors.green),
-                  title: Text(network),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () {
-                    ref.read(deviceSetupProvider.notifier).selectWifi(network);
-                  },
-                ),
-              );
-            },
+        if (networks.isEmpty)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Recherche des réseaux WiFi...',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  TextButton.icon(
+                    onPressed: () {
+                      // Allow manual SSID entry
+                      _showManualSsidDialog(context, ref);
+                    },
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Entrer manuellement'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              itemCount: networks.length + 1, // +1 for manual entry option
+              itemBuilder: (context, index) {
+                if (index == networks.length) {
+                  // Manual entry option at the end
+                  return Card(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: ListTile(
+                      leading: const Icon(Icons.edit, color: Colors.grey),
+                      title: const Text('Entrer manuellement'),
+                      trailing: const Icon(Icons.arrow_forward_ios),
+                      onTap: () => _showManualSsidDialog(context, ref),
+                    ),
+                  );
+                }
+                
+                final network = networks[index];
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.wifi, color: Colors.green),
+                    title: Text(network),
+                    trailing: const Icon(Icons.arrow_forward_ios),
+                    onTap: () {
+                      ref.read(deviceSetupProvider.notifier).selectWifi(network);
+                    },
+                  ),
+                );
+              },
+            ),
           ),
-        ),
       ],
+    );
+  }
+
+  void _showManualSsidDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nom du réseau WiFi'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'SSID',
+            hintText: 'Entrez le nom du réseau',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                Navigator.pop(context);
+                ref.read(deviceSetupProvider.notifier).selectWifi(controller.text);
+              }
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -14,6 +14,7 @@ class RealBluetoothService extends core.BluetoothService {
   static const String deviceIdCharUuid = '12345678-1234-5678-1234-56789abcdef6';
   static const String ipAddressCharUuid = '12345678-1234-5678-1234-56789abcdef7';
   static const String serverIdCharUuid = '12345678-1234-5678-1234-56789abcdef8';
+  static const String wifiNetworksCharUuid = '12345678-1234-5678-1234-56789abcdef9';
 
   @override
   Future<List<core.BluetoothEndpoint>> findNearEndpoints() async {
@@ -91,6 +92,7 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   fbp.BluetoothCharacteristic? _deviceIdChar;
   fbp.BluetoothCharacteristic? _ipAddressChar;
   fbp.BluetoothCharacteristic? _serverIdChar;
+  fbp.BluetoothCharacteristic? _wifiNetworksChar;
   
   StreamSubscription? _statusSubscription;
   StreamSubscription? _ipSubscription;
@@ -138,6 +140,8 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
               _ipAddressChar = char;
             } else if (charUuid == RealBluetoothService.serverIdCharUuid.toLowerCase()) {
               _serverIdChar = char;
+            } else if (charUuid == RealBluetoothService.wifiNetworksCharUuid.toLowerCase()) {
+              _wifiNetworksChar = char;
             }
           }
         }
@@ -331,6 +335,29 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     } catch (e) {
       print('Error sending server ID: $e');
       return false;
+    }
+  }
+
+  /// Get list of available WiFi networks from ESP32
+  Future<List<String>> getAvailableWifiNetworks() async {
+    try {
+      if (_wifiNetworksChar != null) {
+        final value = await _wifiNetworksChar!.read();
+        final jsonStr = utf8.decode(value);
+        print('WiFi networks JSON: $jsonStr');
+        
+        if (jsonStr.isEmpty || jsonStr == '[]') {
+          return [];
+        }
+        
+        // Parse JSON array of strings
+        final List<dynamic> networks = json.decode(jsonStr);
+        return networks.cast<String>();
+      }
+      return [];
+    } catch (e) {
+      print('Error reading WiFi networks: $e');
+      return [];
     }
   }
 

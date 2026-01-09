@@ -36,20 +36,14 @@ class HomeScreen extends ConsumerWidget {
                 data: (list) {
                   if (list.isEmpty) return const SizedBox.shrink();
                   final shown = list.length > 3 ? list.sublist(0, 3) : list;
-                  return SizedBox(
-                    height: 140,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemBuilder: (_, i) => Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: DevicePreview(
-                          deviceId: shown[i].deviceId,
-                          name: shown[i].name ?? shown[i].deviceId,
-                        ),
+                  return Column(
+                    children: shown.map((device) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: DevicePreview(
+                        deviceId: device.deviceId,
+                        name: device.name ?? device.deviceId,
                       ),
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemCount: shown.length,
-                    ),
+                    )).toList(),
                   );
                 },
                 loading: () => const SizedBox.shrink(),

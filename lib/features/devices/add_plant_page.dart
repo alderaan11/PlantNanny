@@ -6,7 +6,9 @@ import '../../data/models/device_metadata.dart';
 import 'package:plant_nanny/features/dashboard/dashboard_page.dart';
 
 class AddPlantPage extends ConsumerStatefulWidget {
-  const AddPlantPage({super.key});
+  final String? deviceId;
+  
+  const AddPlantPage({super.key, this.deviceId});
 
   @override
   ConsumerState<AddPlantPage> createState() => _AddPlantPageState();
@@ -20,6 +22,8 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
   final _commentsController = TextEditingController();
   String? _plantType;
   bool _isOutdoor = false;
+  
+  bool get _isBluetoothFlow => widget.deviceId != null;
 
   // Simple list of plant types for selection/search
   final List<String> _plantTypes = [
@@ -45,7 +49,7 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final pairing = _pairingController.text.trim();
+    final pairing = _isBluetoothFlow ? (widget.deviceId ?? '') : _pairingController.text.trim();
     final name = _nameController.text.trim().isEmpty ? null : _nameController.text.trim();
     final baseMs = int.tryParse(_doseController.text.trim()) ?? 5000;
 
@@ -90,18 +94,20 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
                     Column(children: [
                       Icon(Icons.local_florist, size: 48, color: cs.primary),
                       const SizedBox(height: 8),
-                      Text('Pairer un capteur', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(_isBluetoothFlow ? 'Nommer votre plante' : 'Pairer un capteur', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 8),
-                      Text('Entrez le code de pairing du capteur ou simulez-en un', textAlign: TextAlign.center),
+                      Text(_isBluetoothFlow ? 'Configurez les informations de votre plante' : 'Entrez le code de pairing du capteur ou simulez-en un', textAlign: TextAlign.center),
                       const SizedBox(height: 12),
                     ]),
 
-                    TextFormField(
-                      controller: _pairingController,
-                      decoration: const InputDecoration(labelText: 'Code de pairing'),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Code requis' : null,
-                    ),
-                    const SizedBox(height: 8),
+                    if (!_isBluetoothFlow) ...[
+                      TextFormField(
+                        controller: _pairingController,
+                        decoration: const InputDecoration(labelText: 'Code de pairing'),
+                        validator: (v) => (v == null || v.isEmpty) ? 'Code requis' : null,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     TextFormField(
                       controller: _nameController,
                       decoration: const InputDecoration(labelText: 'Nom de l\'appareil (ex: Tomates du balcon)'),

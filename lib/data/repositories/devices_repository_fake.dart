@@ -15,18 +15,23 @@ class FakeDevicesRepository implements DevicesRepository {
       ..name = 'Tomates du balcon'
       ..ownerUid = 'test-user'
       ..createdAt = now));
+    _devices.add(Device((b) => b
+      ..deviceId = 'fake-device-2'
+      ..name = 'Basilic de cuisine'
+      ..ownerUid = 'test-user'
+      ..createdAt = now));
   }
 
   // Methods that match the DevicesRepository API
   @override
   Future<List<Device>> list() async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(seconds: 1));
     return _devices;
   }
 
   @override
   Future<Device> register(String pairingCode, {String? name}) async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    await Future.delayed(const Duration(seconds: 1));
     final deviceId = 'esp32-${pairingCode.toLowerCase().replaceAll('-', '')}';
     final now = DateTime.now().toUtc();
     final device = Device((b) => b
@@ -40,7 +45,7 @@ class FakeDevicesRepository implements DevicesRepository {
 
   @override
   Future<void> unregister(String deviceId) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(seconds: 1));
     _devices.removeWhere((d) => d.deviceId == deviceId);
   }
 

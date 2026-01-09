@@ -30,16 +30,14 @@ class DevicePreview extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final readingAsync = ref.watch(dashboardProvider(deviceId));
 
-    return SizedBox(
-      width: 200,
-      child: Card(
-        color: Colors.green.shade50,
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DashboardPage(deviceId: deviceId))),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
+    return Card(
+      color: Colors.white,
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => DashboardPage(deviceId: deviceId))),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
             child: readingAsync.when(
               data: (r) {
                 final lum = r.luminosityPct?.toDouble() ?? 0.0;
@@ -79,7 +77,6 @@ class DevicePreview extends ConsumerWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

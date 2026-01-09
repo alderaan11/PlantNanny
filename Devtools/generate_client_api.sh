@@ -28,3 +28,7 @@ openapi-generator-cli generate \
   -g dart-dio \
   -o $ROOT_DIR/ClientApi \
   --additional-properties=pubName=plant_nanny_api 
+
+pushd $ROOT_DIR/ClientApi
+  dart run build_runner build --delete-conflicting-outputs > /dev/null 2>&1
+popd

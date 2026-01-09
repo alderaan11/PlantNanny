@@ -4,7 +4,6 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:plant_nanny/core/bluetooth_service.dart' as core;
 
 /// Implementation using flutter_blue_plus. This is intentionally general —
-  final FlutterBluePlus _ble = FlutterBluePlus.instance;
 /// it will look for devices with a name containing the provided `nameFilter`.
 class FlutterBluetoothService extends core.BluetoothService {
   final Duration scanDuration;

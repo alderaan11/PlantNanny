@@ -119,6 +119,22 @@ def parse_args():
         default=8080,
         help="Port to bind to (default: 8080)",
     )
+    parser.add_argument(
+        "--mqtt-broker",
+        default="localhost",
+        help="MQTT broker hostname (default: localhost)",
+    )
+    parser.add_argument(
+        "--mqtt-port",
+        type=int,
+        default=1883,
+        help="MQTT broker port (default: 1883)",
+    )
+    parser.add_argument(
+        "--no-mqtt",
+        action="store_true",
+        help="Disable MQTT handler",
+    )
     return parser.parse_args()
 
 
@@ -127,6 +143,33 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+    import asyncio
+    from mqtt_handler import setup_mqtt_handler, shutdown_mqtt_handler
+    
     args = parse_args()
     app = create_app(seed_data=args.seed)
-    uvicorn.run(app, host=args.host, port=args.port)
+    
+    async def main():
+        # Setup MQTT handler if not disabled
+        if not args.no_mqtt:
+            try:
+                await setup_mqtt_handler(
+                    broker_host=args.mqtt_broker,
+                    broker_port=args.mqtt_port,
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger("plant_nanny.mqtt").warning(
+                    f"Failed to start MQTT handler: {e}. Continuing without MQTT."
+                )
+        
+        # Run the server
+        config = uvicorn.Config(app, host=args.host, port=args.port)
+        server = uvicorn.Server(config)
+        
+        try:
+            await server.serve()
+        finally:
+            await shutdown_mqtt_handler()
+    
+    asyncio.run(main())

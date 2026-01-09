@@ -42,11 +42,12 @@ def seed_fake_data() -> None:
     now = datetime.now(timezone.utc)
     
     # --- Fake Devices ---
+    # Use a default dev user 'test-user' so local sign-ins like 'test-user' will own seeded devices
     fake_devices = [
         {
             "deviceId": "esp32-tomato",
             "name": "Tomates du balcon",
-            "ownerUid": "user1",
+            "ownerUid": "test-user",
             "createdAt": (now - timedelta(days=30)).isoformat(),
             "lastSeen": (now - timedelta(minutes=5)).isoformat(),
             "firmwareVersion": "1.2.3",
@@ -54,7 +55,7 @@ def seed_fake_data() -> None:
         {
             "deviceId": "esp32-basil",
             "name": "Basilic cuisine",
-            "ownerUid": "user1",
+            "ownerUid": "test-user",
             "createdAt": (now - timedelta(days=15)).isoformat(),
             "lastSeen": (now - timedelta(minutes=2)).isoformat(),
             "firmwareVersion": "1.2.3",
@@ -62,7 +63,7 @@ def seed_fake_data() -> None:
         {
             "deviceId": "esp32-fern",
             "name": "Fougère salon",
-            "ownerUid": "user1",
+            "ownerUid": "test-user",
             "createdAt": (now - timedelta(days=7)).isoformat(),
             "lastSeen": (now - timedelta(hours=1)).isoformat(),
             "firmwareVersion": "1.2.0",

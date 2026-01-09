@@ -1,36 +1,43 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/auth/auth_notifier.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
 
-/// Base URL for the API server.
-/// - Android emulator: use 10.0.2.2 to reach host localhost
-/// - iOS simulator / Linux / macOS / Windows: use localhost
-/// - Physical device: use your machine's local IP (e.g., 192.168.1.x)
-final baseUrlProvider = Provider<String>((_) {
-  // Detect platform and use appropriate URL
-  if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
-    // Android emulator uses 10.0.2.2 to reach host machine
+// Si tu as un provider de baseUrl ailleurs, garde ton import réel ici.
+// import '../data/auth/auth_notifier.dart';  // <-- seulement si tu en as besoin
+
+/// Exemple : base URL par plateforme (à adapter à ton projet)
+final baseUrlProvider = Provider<String>((ref) {
+  // Android emulator ne peut pas accéder à localhost du host -> 10.0.2.2
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     return 'http://10.0.2.2:8080';
   }
-  // Desktop/web/iOS simulator can use localhost
+  // iOS simulator / macOS / web
   return 'http://localhost:8080';
 });
 
-/// Provider for the current auth token.
-/// TODO: Replace with actual Firebase Auth token from user authentication.
-final authTokenProvider = Provider<String?>((ref) {
-  // Development token - in production, get this from Firebase Auth
-  return 'dev-token-user1';
-});
-
+/// Le provider principal du client OpenAPI
 final apiClientProvider = Provider<PlantNannyApi>((ref) {
-  final api = PlantNannyApi(basePathOverride: ref.watch(baseUrlProvider));
+  final baseUrl = ref.watch(baseUrlProvider);
 
-  // Set the bearer auth token for FirebaseJwt security scheme
+  // Selon le générateur, le champ peut s'appeler basePath ou basePathOverride.
+  final api = PlantNannyApi(basePathOverride: baseUrl);
+
+  // Watch the auth token and set bearer auth when available.
+  // We use watch so the provider will recompute when the token changes.
   final token = ref.watch(authTokenProvider);
-  if (token != null) {
+  if (token != null && token.isNotEmpty) {
     api.setBearerAuth('FirebaseJwt', token);
   }
 
   return api;
 });
+
+
+/// Provider for the current auth token.
+/// Uses the auth notifier state to obtain the current token.
+final authTokenProvider = Provider<String?>((ref) {
+  final authState = ref.watch(authNotifierProvider);
+  return authState.token;
+});
+

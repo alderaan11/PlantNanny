@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:plant_nanny_api/plant_nanny_api.dart';
 import 'package:plant_nanny/core/api_client_provider.dart';
+import 'package:plant_nanny_api/plant_nanny_api.dart';
 
 final devicesRepositoryProvider = Provider<DevicesRepository>((ref) {
   return DevicesRepository(ref.watch(apiClientProvider).getDevicesApi());
@@ -17,7 +17,7 @@ class DevicesRepository {
 
   Future<Device> register(String pairingCode, {String? name}) async {
     final res = await _api.handlersV1DevicesRegisterPost(
-      registerDeviceRequest: RegisterDeviceRequest((b) {
+      registerDeviceRequest: RegisterDeviceRequest((RegisterDeviceRequestBuilder b) {
         b.pairingCode = pairingCode;
         if (name != null) b.name = name;
       }),

@@ -116,19 +116,9 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       final connected = await _bluetoothService.connect(device);
       
       if (connected) {
-        // Fetch available WiFi networks from the device
-        List<String> networks = [];
-        if (device is RealBluetoothEndpoint) {
-          // Wait a moment for ESP32 to scan networks
-          await Future.delayed(const Duration(seconds: 2));
-          networks = await device.getAvailableWifiNetworks();
-        }
-        
-        // Skip PIN entry - PIN is handled by OS BLE pairing dialog during connect()
-        // Go directly to WiFi selection
+        // Go to PIN entry for verification
         state = state.copyWith(
-          state: DeviceSetupState.selectWifi,
-          wifiNetworks: networks,
+          state: DeviceSetupState.enterPin,
         );
       } else {
         state = state.copyWith(
@@ -152,16 +142,37 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
         state: DeviceSetupState.sending,
       );
 
-      await state.selectedDevice?.send('PIN:$pin');
-      final response = await state.selectedDevice?.recv(
-        timeout: const Duration(seconds: 5),
-      );
+      final device = state.selectedDevice;
+      bool pinValid = false;
+      
+      if (device is RealBluetoothEndpoint) {
+        // Use dedicated verifyPin method
+        pinValid = await device.verifyPin(pin);
+      } else {
+        // Fallback for mock devices
+        await device?.send('PIN:$pin');
+        final response = await device?.recv(
+          timeout: const Duration(seconds: 5),
+        );
+        pinValid = response == 'PIN_OK';
+      }
 
-      if (response == 'PIN_OK') {
-        state = state.copyWith(state: DeviceSetupState.selectWifi);
+      if (pinValid) {
+        // Fetch available WiFi networks from the device
+        List<String> networks = [];
+        if (device is RealBluetoothEndpoint) {
+          // Wait a moment for ESP32 to scan networks
+          await Future.delayed(const Duration(seconds: 2));
+          networks = await device.getAvailableWifiNetworks();
+        }
+        
+        state = state.copyWith(
+          state: DeviceSetupState.selectWifi,
+          wifiNetworks: networks,
+        );
       } else {
         state = state.copyWith(
-          state: DeviceSetupState.error,
+          state: DeviceSetupState.enterPin,
           errorMessage: 'Code PIN invalide',
         );
       }

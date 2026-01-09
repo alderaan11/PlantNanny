@@ -15,6 +15,7 @@ class RealBluetoothService extends core.BluetoothService {
   static const String ipAddressCharUuid = '12345678-1234-5678-1234-56789abcdef7';
   static const String serverIdCharUuid = '12345678-1234-5678-1234-56789abcdef8';
   static const String wifiNetworksCharUuid = '12345678-1234-5678-1234-56789abcdef9';
+  static const String pinCharUuid = '12345678-1234-5678-1234-56789abcdefa';
 
   @override
   Future<List<core.BluetoothEndpoint>> findNearEndpoints() async {
@@ -93,6 +94,7 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   fbp.BluetoothCharacteristic? _ipAddressChar;
   fbp.BluetoothCharacteristic? _serverIdChar;
   fbp.BluetoothCharacteristic? _wifiNetworksChar;
+  fbp.BluetoothCharacteristic? _pinChar;
   
   StreamSubscription? _statusSubscription;
   StreamSubscription? _ipSubscription;
@@ -142,6 +144,8 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
               _serverIdChar = char;
             } else if (charUuid == RealBluetoothService.wifiNetworksCharUuid.toLowerCase()) {
               _wifiNetworksChar = char;
+            } else if (charUuid == RealBluetoothService.pinCharUuid.toLowerCase()) {
+              _pinChar = char;
             }
           }
         }
@@ -185,8 +189,11 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     // Format: "WIFI:ssid:password" or "MQTT:host:port" or "PIN:123456"
     
     if (message.startsWith('PIN:')) {
-      // PIN verification - handled by BLE pairing, just acknowledge
-      // The actual PIN is handled by the OS BLE pairing dialog
+      // Send PIN to the device for verification
+      final pin = message.substring(4);
+      if (_pinChar != null) {
+        await _pinChar!.write(utf8.encode(pin), withoutResponse: false);
+      }
       return;
     }
     
@@ -367,6 +374,29 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
       final status = await recv(timeout: timeout);
       return status == 'WIFI_CONFIGURED';
     } catch (e) {
+      return false;
+    }
+  }
+
+  /// Verify PIN with the device
+  /// Returns true if PIN is valid, false otherwise
+  Future<bool> verifyPin(String pin) async {
+    try {
+      if (_pinChar == null) {
+        print('PIN characteristic not found');
+        return false;
+      }
+      
+      // Write PIN to the characteristic
+      await _pinChar!.write(utf8.encode(pin), withoutResponse: false);
+      
+      // Wait for response via status characteristic
+      final response = await recv(timeout: const Duration(seconds: 5));
+      print('PIN verification response: $response');
+      
+      return response == 'PIN_OK';
+    } catch (e) {
+      print('Error verifying PIN: $e');
       return false;
     }
   }

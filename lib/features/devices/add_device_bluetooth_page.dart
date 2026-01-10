@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'device_setup_provider.dart';
 import '../../core/bluetooth_service.dart';
@@ -41,18 +40,22 @@ class _AddDeviceBluetoothPageState extends ConsumerState<AddDeviceBluetoothPage>
         return const _ScanningView();
       case DeviceSetupState.selectDevice:
         return _DeviceSelectionView(devices: state.devices);
-      case DeviceSetupState.enterPin:
-        return const _PinEntryView();
+      case DeviceSetupState.connecting:
+        return const _ConnectingView();
       case DeviceSetupState.selectWifi:
         return const _WifiSelectionView();
       case DeviceSetupState.enterWifiPass:
         return _WifiPasswordView(ssid: state.ssid ?? '');
       case DeviceSetupState.sending:
         return const _SendingView();
+      case DeviceSetupState.waitingWifi:
+        return const _WaitingWifiView();
       case DeviceSetupState.success:
         return const _SuccessView();
       case DeviceSetupState.error:
         return _ErrorView(message: state.errorMessage ?? 'Erreur inconnue');
+      case DeviceSetupState.wifiError:
+        return _WifiErrorView(message: state.errorMessage ?? 'Erreur de connexion WiFi');
     }
   }
 }
@@ -147,90 +150,31 @@ class _DeviceSelectionView extends ConsumerWidget {
   }
 }
 
-/// Vue de saisie du code PIN
-class _PinEntryView extends ConsumerStatefulWidget {
-  const _PinEntryView();
-
-  @override
-  ConsumerState<_PinEntryView> createState() => _PinEntryViewState();
-}
-
-class _PinEntryViewState extends ConsumerState<_PinEntryView> {
-  final _pinController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
-  @override
-  void dispose() {
-    _pinController.dispose();
-    super.dispose();
-  }
+/// Vue de connexion et appairage BLE en cours
+class _ConnectingView extends StatelessWidget {
+  const _ConnectingView();
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock, size: 64, color: Colors.blue),
-              const SizedBox(height: 24),
-              Text(
-                'Code PIN',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Entrez le code PIN à 6 chiffres de l\'appareil',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: 200,
-                child: TextFormField(
-                  controller: _pinController,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  maxLength: 6,
-                  style: const TextStyle(fontSize: 32, letterSpacing: 16),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  decoration: const InputDecoration(
-                    hintText: '------',
-                    counterText: '',
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer un code PIN';
-                    }
-                    if (value.length != 6) {
-                      return 'Le code PIN doit contenir 6 chiffres';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: 200,
-                child: ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      ref.read(deviceSetupProvider.notifier).submitPin(_pinController.text);
-                    }
-                  },
-                  child: const Text('Valider'),
-                ),
-              ),
-            ],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 24),
+          Text(
+            'Connexion en cours...',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-        ),
+          const SizedBox(height: 8),
+          Text(
+            'Entrez le code PIN affiché sur l\'appareil\nlorsque le système vous le demande',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          const Icon(Icons.bluetooth_connected, size: 48, color: Colors.blue),
+        ],
       ),
     );
   }
@@ -570,6 +514,89 @@ class _ErrorView extends ConsumerWidget {
                     ref.read(deviceSetupProvider.notifier).reset();
                   },
                   child: const Text('Réessayer'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Vue d'attente de connexion WiFi
+class _WaitingWifiView extends StatelessWidget {
+  const _WaitingWifiView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 24),
+          Text(
+            'Connexion WiFi en cours...',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'L\'appareil essaie de se connecter au réseau WiFi',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          const Icon(Icons.wifi, size: 48, color: Colors.blue),
+        ],
+      ),
+    );
+  }
+}
+
+/// Vue d'erreur WiFi avec possibilité de réessayer
+class _WifiErrorView extends ConsumerWidget {
+  final String message;
+
+  const _WifiErrorView({required this.message});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.wifi_off, size: 80, color: Colors.orange),
+            const SizedBox(height: 24),
+            Text(
+              'Erreur de connexion WiFi',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Annuler'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    ref.read(deviceSetupProvider.notifier).retryWifiConfig();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
                 ),
               ],
             ),

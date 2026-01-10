@@ -240,8 +240,90 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
           .timeout(timeout ?? const Duration(seconds: 30));
       return message;
     } catch (e) {
+      // Timeout or error - try to read status directly as fallback
+      try {
+        if (_configStatusChar != null) {
+          final value = await _configStatusChar!.read();
+          final status = utf8.decode(value);
+          if (status.isNotEmpty && status != 'READY' && status != 'AWAITING_CONFIG') {
+            return status;
+          }
+        }
+      } catch (_) {}
       return null;
     }
+  }
+
+  /// Wait for WiFi result with polling fallback
+  Future<String?> waitForWifiResult({Duration timeout = const Duration(seconds: 30)}) async {
+    final endTime = DateTime.now().add(timeout);
+    
+    // First try to get from stream
+    try {
+      final streamFuture = _messageController.stream
+          .where((msg) => msg == 'WIFI_CONFIGURED' || msg == 'WIFI_FAILED')
+          .first
+          .timeout(const Duration(seconds: 5));
+      
+      final result = await streamFuture;
+      return result;
+    } catch (_) {
+      // Stream timeout, fall back to polling
+    }
+    
+    // Poll the status characteristic
+    while (DateTime.now().isBefore(endTime)) {
+      try {
+        if (_configStatusChar != null) {
+          final value = await _configStatusChar!.read();
+          final status = utf8.decode(value);
+          if (status == 'WIFI_CONFIGURED' || status == 'WIFI_FAILED') {
+            return status;
+          }
+        }
+      } catch (e) {
+        print('Error polling status: $e');
+      }
+      await Future.delayed(const Duration(seconds: 2));
+    }
+    
+    return null;
+  }
+
+  /// Wait for pairing completion (PAIRED status from ESP32)
+  Future<bool> waitForPaired({Duration timeout = const Duration(seconds: 30)}) async {
+    final endTime = DateTime.now().add(timeout);
+    
+    // First try to get from stream
+    try {
+      final streamFuture = _messageController.stream
+          .where((msg) => msg == 'PAIRED')
+          .first
+          .timeout(const Duration(seconds: 5));
+      
+      await streamFuture;
+      return true;
+    } catch (_) {
+      // Stream timeout, fall back to polling
+    }
+    
+    // Poll the status characteristic
+    while (DateTime.now().isBefore(endTime)) {
+      try {
+        if (_configStatusChar != null) {
+          final value = await _configStatusChar!.read();
+          final status = utf8.decode(value);
+          if (status == 'PAIRED') {
+            return true;
+          }
+        }
+      } catch (e) {
+        print('Error polling paired status: $e');
+      }
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    
+    return false;
   }
 
   /// Send WiFi credentials directly (preferred method)

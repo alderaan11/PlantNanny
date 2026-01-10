@@ -9,7 +9,8 @@ String get _defaultServerUrl {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
     return 'http://10.0.2.2:8080';
   }
-  return 'http://localhost:8080';
+  // Use 127.0.0.1 instead of localhost for more reliable IPv4 resolution
+  return 'http://127.0.0.1:8080';
 }
 
 /// Provider for SharedPreferences instance
@@ -21,7 +22,8 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 class ServerConfigNotifier extends StateNotifier<String> {
   final SharedPreferences _prefs;
 
-  ServerConfigNotifier(this._prefs) : super(_prefs.getString(_serverUrlKey) ?? _defaultServerUrl);
+  ServerConfigNotifier(this._prefs)
+    : super(_prefs.getString(_serverUrlKey) ?? _defaultServerUrl);
 
   /// Update the server URL
   Future<void> setServerUrl(String url) async {
@@ -37,7 +39,8 @@ class ServerConfigNotifier extends StateNotifier<String> {
 }
 
 /// Provider for the server configuration notifier
-final serverConfigProvider = StateNotifierProvider<ServerConfigNotifier, String>((ref) {
-  final prefs = ref.watch(sharedPreferencesProvider);
-  return ServerConfigNotifier(prefs);
-});
+final serverConfigProvider =
+    StateNotifierProvider<ServerConfigNotifier, String>((ref) {
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return ServerConfigNotifier(prefs);
+    });

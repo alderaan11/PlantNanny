@@ -1,7 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import '../../core/bluetooth_service.dart' as core;
+
+/// Debug logger helper
+void _log(String message) {
+  if (kDebugMode) {
+    print('[BLE] $message');
+  }
+}
 
 /// Real Bluetooth service using flutter_blue_plus
 class RealBluetoothService extends core.BluetoothService {
@@ -111,31 +119,39 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   @override
   Future<bool> connect() async {
     try {
+      _log('Connecting to device: ${device.remoteId}');
       await device.connect(license: fbp.License.free, timeout: const Duration(seconds: 15));
+      _log('Connected, waiting for stabilization...');
       
       // Wait for connection to stabilize
       await Future.delayed(const Duration(milliseconds: 500));
       
       // Discover services
+      _log('Discovering services...');
       final services = await device.discoverServices();
+      _log('Found ${services.length} services');
       
       // Find our config service
       for (final service in services) {
         if (service.uuid.toString().toLowerCase() == 
             RealBluetoothService.configServiceUuid.toLowerCase()) {
+          _log('Found PlantNanny config service');
           for (final char in service.characteristics) {
             final charUuid = char.uuid.toString().toLowerCase();
             
             if (charUuid == RealBluetoothService.wifiSsidCharUuid.toLowerCase()) {
               _wifiSsidChar = char;
+              _log('  Found WiFi SSID characteristic');
             } else if (charUuid == RealBluetoothService.wifiPassCharUuid.toLowerCase()) {
               _wifiPassChar = char;
+              _log('  Found WiFi Pass characteristic');
             } else if (charUuid == RealBluetoothService.mqttHostCharUuid.toLowerCase()) {
               _mqttHostChar = char;
             } else if (charUuid == RealBluetoothService.mqttPortCharUuid.toLowerCase()) {
               _mqttPortChar = char;
             } else if (charUuid == RealBluetoothService.configStatusCharUuid.toLowerCase()) {
               _configStatusChar = char;
+              _log('  Found Config Status characteristic');
             } else if (charUuid == RealBluetoothService.deviceIdCharUuid.toLowerCase()) {
               _deviceIdChar = char;
             } else if (charUuid == RealBluetoothService.ipAddressCharUuid.toLowerCase()) {
@@ -144,8 +160,10 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
               _serverIdChar = char;
             } else if (charUuid == RealBluetoothService.wifiNetworksCharUuid.toLowerCase()) {
               _wifiNetworksChar = char;
+              _log('  Found WiFi Networks characteristic');
             } else if (charUuid == RealBluetoothService.pinCharUuid.toLowerCase()) {
               _pinChar = char;
+              _log('  Found PIN characteristic');
             }
           }
         }
@@ -153,9 +171,11 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
 
       // Subscribe to status notifications
       if (_configStatusChar != null) {
+        _log('Subscribing to status notifications...');
         await _configStatusChar!.setNotifyValue(true);
         _statusSubscription = _configStatusChar!.onValueReceived.listen((value) {
           final status = utf8.decode(value);
+          _log('Status notification received: $status');
           _messageController.add(status);
         });
       }
@@ -166,14 +186,17 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
         _ipSubscription = _ipAddressChar!.onValueReceived.listen((value) {
           final ip = utf8.decode(value);
           if (ip.isNotEmpty) {
+            _log('IP notification received: $ip');
             _messageController.add('IP:$ip');
           }
         });
       }
 
-      return _wifiSsidChar != null && _wifiPassChar != null;
+      final success = _wifiSsidChar != null && _wifiPassChar != null && _pinChar != null;
+      _log('Connection result: $success (pinChar: ${_pinChar != null})');
+      return success;
     } catch (e) {
-      print('BLE connect error: $e');
+      _log('Connect error: $e');
       return false;
     }
   }
@@ -324,6 +347,64 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     }
     
     return false;
+  }
+
+  /// Send PIN code for verification
+  Future<bool> sendPin(String pin) async {
+    try {
+      if (_pinChar == null) {
+        _log('sendPin: PIN characteristic not found');
+        return false;
+      }
+      
+      _log('sendPin: Sending PIN to ESP32...');
+      await _pinChar!.write(utf8.encode(pin), withoutResponse: false);
+      _log('sendPin: PIN sent successfully');
+      return true;
+    } catch (e) {
+      _log('sendPin error: $e');
+      return false;
+    }
+  }
+
+  /// Wait for PIN verification result from ESP32
+  Future<String?> waitForPinResult({Duration timeout = const Duration(seconds: 10)}) async {
+    final endTime = DateTime.now().add(timeout);
+    _log('waitForPinResult: Waiting for PIN verification...');
+    
+    // First try to get from stream
+    try {
+      final streamFuture = _messageController.stream
+          .where((msg) => msg == 'PIN_OK' || msg == 'PIN_INVALID')
+          .first
+          .timeout(const Duration(seconds: 3));
+      
+      final result = await streamFuture;
+      _log('waitForPinResult: Got from stream: $result');
+      return result;
+    } catch (_) {
+      _log('waitForPinResult: Stream timeout, falling back to polling...');
+    }
+    
+    // Poll the status characteristic
+    while (DateTime.now().isBefore(endTime)) {
+      try {
+        if (_configStatusChar != null) {
+          final value = await _configStatusChar!.read();
+          final status = utf8.decode(value);
+          _log('waitForPinResult: Polled status: $status');
+          if (status == 'PIN_OK' || status == 'PIN_INVALID') {
+            return status;
+          }
+        }
+      } catch (e) {
+        _log('waitForPinResult: Poll error: $e');
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+    
+    _log('waitForPinResult: Timeout reached');
+    return null;
   }
 
   /// Send WiFi credentials directly (preferred method)

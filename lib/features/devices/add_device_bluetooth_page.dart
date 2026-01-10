@@ -42,6 +42,8 @@ class _AddDeviceBluetoothPageState extends ConsumerState<AddDeviceBluetoothPage>
         return _DeviceSelectionView(devices: state.devices);
       case DeviceSetupState.connecting:
         return const _ConnectingView();
+      case DeviceSetupState.enterPin:
+        return _PinEntryView(errorMessage: state.errorMessage);
       case DeviceSetupState.selectWifi:
         return const _WifiSelectionView();
       case DeviceSetupState.enterWifiPass:
@@ -166,14 +168,121 @@ class _ConnectingView extends StatelessWidget {
             'Connexion en cours...',
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          const SizedBox(height: 16),
+          const Icon(Icons.bluetooth_connected, size: 48, color: Colors.blue),
+        ],
+      ),
+    );
+  }
+}
+
+/// Vue de saisie du code PIN
+class _PinEntryView extends ConsumerStatefulWidget {
+  final String? errorMessage;
+  
+  const _PinEntryView({this.errorMessage});
+
+  @override
+  ConsumerState<_PinEntryView> createState() => _PinEntryViewState();
+}
+
+class _PinEntryViewState extends ConsumerState<_PinEntryView> {
+  final _pinController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_pinController.text.length == 6 && !_isSubmitting) {
+      setState(() => _isSubmitting = true);
+      ref.read(deviceSetupProvider.notifier).submitPin(_pinController.text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.pin, size: 64, color: Colors.blue),
+          const SizedBox(height: 24),
+          Text(
+            'Entrez le code PIN',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const SizedBox(height: 8),
           Text(
-            'Entrez le code PIN affiché sur l\'appareil\nlorsque le système vous le demande',
+            'Saisissez le code à 6 chiffres affiché sur l\'écran de l\'appareil',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
-          const Icon(Icons.bluetooth_connected, size: 48, color: Colors.blue),
+          const SizedBox(height: 32),
+          if (widget.errorMessage != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.errorMessage!,
+                      style: TextStyle(color: Colors.red.shade700),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          SizedBox(
+            width: 200,
+            child: TextField(
+              controller: _pinController,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              maxLength: 6,
+              style: const TextStyle(fontSize: 32, letterSpacing: 8),
+              decoration: const InputDecoration(
+                hintText: '------',
+                counterText: '',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {});
+                if (value.length == 6) {
+                  _submit();
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _pinController.text.length == 6 && !_isSubmitting
+                  ? _submit
+                  : null,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Valider'),
+            ),
+          ),
         ],
       ),
     );

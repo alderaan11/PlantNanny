@@ -1,8 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bluetooth_service.dart';
 import '../../core/api_client_provider.dart';
 import 'real_bluetooth_service.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
+
+/// Debug logger helper
+void _log(String message) {
+  if (kDebugMode) {
+    print('[DeviceSetup] $message');
+  }
+}
 
 /// Provider pour le service Bluetooth
 final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
@@ -13,7 +21,8 @@ final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
 enum DeviceSetupState {
   scanning,      // Scan BLE en cours
   selectDevice,  // Sélection de l'appareil
-  connecting,    // Connexion et appairage BLE en cours
+  connecting,    // Connexion BLE en cours
+  enterPin,      // Saisie du code PIN affiché sur l'appareil
   selectWifi,    // Sélection du réseau WiFi
   enterWifiPass, // Saisie du mot de passe WiFi
   sending,       // Envoi des données
@@ -28,6 +37,7 @@ class DeviceSetupModel {
   final DeviceSetupState state;
   final List<BluetoothEndpoint> devices;
   final BluetoothEndpoint? selectedDevice;
+  final String? pin;
   final String? ssid;
   final String? wifiPassword;
   final String? errorMessage;
@@ -37,6 +47,7 @@ class DeviceSetupModel {
     this.state = DeviceSetupState.scanning,
     this.devices = const [],
     this.selectedDevice,
+    this.pin,
     this.ssid,
     this.wifiPassword,
     this.errorMessage,
@@ -47,6 +58,7 @@ class DeviceSetupModel {
     DeviceSetupState? state,
     List<BluetoothEndpoint>? devices,
     BluetoothEndpoint? selectedDevice,
+    String? pin,
     String? ssid,
     String? wifiPassword,
     String? errorMessage,
@@ -56,6 +68,7 @@ class DeviceSetupModel {
       state: state ?? this.state,
       devices: devices ?? this.devices,
       selectedDevice: selectedDevice ?? this.selectedDevice,
+      pin: pin ?? this.pin,
       ssid: ssid ?? this.ssid,
       wifiPassword: wifiPassword ?? this.wifiPassword,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -106,53 +119,29 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
   /// Sélectionne un appareil et se connecte
   Future<void> selectDevice(BluetoothEndpoint device) async {
     try {
+      _log('selectDevice: Starting connection to ${device.name}');
       state = state.copyWith(
         selectedDevice: device,
         state: DeviceSetupState.connecting,
       );
 
       final connected = await _bluetoothService.connect(device);
+      _log('selectDevice: Connection result: $connected');
       
       if (connected) {
-        // Wait for OS-level BLE pairing to complete
-        // The pairing dialog will be shown by the OS
-        // Wait for ESP32 to send "PAIRED" status
-        
-        if (device is RealBluetoothEndpoint) {
-          final paired = await device.waitForPaired(
-            timeout: const Duration(seconds: 30),
-          );
-          
-          if (!paired) {
-            state = state.copyWith(
-              state: DeviceSetupState.error,
-              errorMessage: 'Le jumelage Bluetooth a échoué ou a expiré',
-            );
-            return;
-          }
-          
-          // Fetch available WiFi networks from the device
-          final networks = await device.getAvailableWifiNetworks();
-          
-          state = state.copyWith(
-            state: DeviceSetupState.selectWifi,
-            wifiNetworks: networks,
-          );
-        } else {
-          // Mock endpoint - just proceed
-          await Future.delayed(const Duration(seconds: 1));
-          state = state.copyWith(
-            state: DeviceSetupState.selectWifi,
-            wifiNetworks: ['Mock Network 1', 'Mock Network 2'],
-          );
-        }
+        // Connection established, now show PIN entry screen
+        // User will enter the PIN displayed on the ESP32 screen
+        _log('selectDevice: Transitioning to enterPin state');
+        state = state.copyWith(state: DeviceSetupState.enterPin);
       } else {
+        _log('selectDevice: Connection failed');
         state = state.copyWith(
           state: DeviceSetupState.error,
           errorMessage: 'Impossible de se connecter à l\'appareil',
         );
       }
     } catch (e) {
+      _log('selectDevice error: $e');
       state = state.copyWith(
         state: DeviceSetupState.error,
         errorMessage: 'Erreur de connexion: $e',
@@ -160,7 +149,69 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
     }
   }
 
-  // PIN verification removed - using OS-level BLE pairing only
+  /// Envoie le code PIN pour vérification
+  Future<void> submitPin(String pin) async {
+    try {
+      _log('submitPin: Submitting PIN...');
+      state = state.copyWith(
+        pin: pin,
+        state: DeviceSetupState.connecting,
+      );
+
+      final endpoint = state.selectedDevice;
+      if (endpoint == null || endpoint is! RealBluetoothEndpoint) {
+        _log('submitPin: No endpoint');
+        state = state.copyWith(
+          state: DeviceSetupState.error,
+          errorMessage: 'Appareil non connecté',
+        );
+        return;
+      }
+
+      // Send PIN to ESP32 for verification
+      final success = await endpoint.sendPin(pin);
+      _log('submitPin: Send result: $success');
+      if (!success) {
+        state = state.copyWith(
+          state: DeviceSetupState.error,
+          errorMessage: 'Échec de l\'envoi du code PIN',
+        );
+        return;
+      }
+
+      // Wait for PIN verification response from ESP32
+      _log('submitPin: Waiting for verification response...');
+      final response = await endpoint.waitForPinResult(
+        timeout: const Duration(seconds: 10),
+      );
+      _log('submitPin: Response: $response');
+
+      if (response == 'PIN_OK') {
+        // PIN verified, fetch WiFi networks
+        final networks = await endpoint.getAvailableWifiNetworks();
+        
+        state = state.copyWith(
+          state: DeviceSetupState.selectWifi,
+          wifiNetworks: networks,
+        );
+      } else if (response == 'PIN_INVALID') {
+        state = state.copyWith(
+          state: DeviceSetupState.enterPin,
+          errorMessage: 'Code PIN incorrect',
+        );
+      } else {
+        state = state.copyWith(
+          state: DeviceSetupState.error,
+          errorMessage: 'Erreur de vérification du PIN: $response',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        state: DeviceSetupState.error,
+        errorMessage: 'Erreur lors de la vérification du PIN: $e',
+      );
+    }
+  }
 
   /// Sélectionne un réseau WiFi
   void selectWifi(String ssid) {

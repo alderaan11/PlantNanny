@@ -6,7 +6,6 @@ import 'package:plant_nanny/data/providers/device_metadata_provider.dart';
 import 'package:plant_nanny/data/models/device_metadata.dart';
 import 'package:plant_nanny/data/repositories/devices_repository.dart';
 
-
 class DevicesPage extends ConsumerWidget {
   const DevicesPage({super.key});
 
@@ -166,4 +165,3 @@ class DevicesPage extends ConsumerWidget {
     commentsController.dispose();
   }
 }
-

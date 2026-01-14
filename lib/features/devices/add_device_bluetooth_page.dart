@@ -15,7 +15,6 @@ class _AddDeviceBluetoothPageState extends ConsumerState<AddDeviceBluetoothPage>
   @override
   void initState() {
     super.initState();
-    // Réinitialiser et démarrer le scan quand on arrive sur la page
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(deviceSetupProvider.notifier).reset();
       ref.read(deviceSetupProvider.notifier).rescan();
@@ -331,10 +330,7 @@ class _WifiSelectionView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   TextButton.icon(
-                    onPressed: () {
-                      // Allow manual SSID entry
-                      _showManualSsidDialog(context, ref);
-                    },
+                    onPressed: () => _showManualSsidDialog(context, ref),
                     icon: const Icon(Icons.edit),
                     label: const Text('Entrer manuellement'),
                   ),
@@ -345,10 +341,9 @@ class _WifiSelectionView extends ConsumerWidget {
         else
           Expanded(
             child: ListView.builder(
-              itemCount: networks.length + 1, // +1 for manual entry option
+              itemCount: networks.length + 1,
               itemBuilder: (context, index) {
                 if (index == networks.length) {
-                  // Manual entry option at the end
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: ListTile(
@@ -545,7 +540,6 @@ class _SuccessViewState extends ConsumerState<_SuccessView> {
   @override
   void initState() {
     super.initState();
-    // Navigue automatiquement après un court délai
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         final deviceId = ref.read(deviceSetupProvider).selectedDevice?.id;

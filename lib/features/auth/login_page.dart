@@ -28,7 +28,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       await ref.read(authNotifierProvider.notifier).signIn(email, password);
-      // On success, auth state changes and main will react
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed: ${e.toString()}')));
     }

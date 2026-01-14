@@ -3,6 +3,7 @@ PlantNanny API Server - Main Application
 Uses Connexion framework with ASGI backend
 """
 import argparse
+import os
 import connexion
 from connexion.middleware import MiddlewarePosition
 from starlette.middleware.cors import CORSMiddleware
@@ -12,6 +13,15 @@ import sys
 # Add server directory to path for imports
 server_dir = Path(__file__).parent
 sys.path.insert(0, str(server_dir))
+
+# Load .env file if python-dotenv is available
+try:
+    from dotenv import load_dotenv
+    env_file = server_dir / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+except ImportError:
+    pass
 
 
 def create_app(seed_data: bool = False) -> connexion.AsyncApp:
@@ -106,33 +116,45 @@ def parse_args():
     parser.add_argument(
         "--seed",
         action="store_true",
+        default=os.getenv("DEV_SEED_DATA", "").lower() == "true",
         help="Seed the database with fake development data",
     )
     parser.add_argument(
         "--host",
-        default="0.0.0.0",
+        default=os.getenv("SERVER_HOST", "0.0.0.0"),
         help="Host to bind to (default: 0.0.0.0)",
     )
     parser.add_argument(
         "--port",
         type=int,
-        default=8080,
+        default=int(os.getenv("SERVER_PORT", "8080")),
         help="Port to bind to (default: 8080)",
     )
     parser.add_argument(
         "--mqtt-broker",
-        default="localhost",
+        default=os.getenv("MQTT_BROKER_HOST", "localhost"),
         help="MQTT broker hostname (default: localhost)",
     )
     parser.add_argument(
         "--mqtt-port",
         type=int,
-        default=1883,
+        default=int(os.getenv("MQTT_BROKER_PORT", "1883")),
         help="MQTT broker port (default: 1883)",
+    )
+    parser.add_argument(
+        "--mqtt-username",
+        default=os.getenv("MQTT_USERNAME"),
+        help="MQTT username for authentication",
+    )
+    parser.add_argument(
+        "--mqtt-password",
+        default=os.getenv("MQTT_PASSWORD"),
+        help="MQTT password for authentication",
     )
     parser.add_argument(
         "--no-mqtt",
         action="store_true",
+        default=os.getenv("MQTT_DISABLED", "").lower() == "true",
         help="Disable MQTT handler",
     )
     return parser.parse_args()
@@ -156,6 +178,8 @@ if __name__ == "__main__":
                 await setup_mqtt_handler(
                     broker_host=args.mqtt_broker,
                     broker_port=args.mqtt_port,
+                    username=args.mqtt_username,
+                    password=args.mqtt_password,
                 )
             except Exception as e:
                 import logging

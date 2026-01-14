@@ -71,7 +71,6 @@ class _MainPageState extends ConsumerState<MainPage> {
           ],
         ),
       ),
-      // show logout FAB only on the Home tab
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
               onPressed: () async => await ref.read(authNotifierProvider.notifier).signOut(),

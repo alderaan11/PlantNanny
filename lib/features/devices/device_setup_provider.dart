@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/bluetooth_service.dart';
 import '../../core/api_client_provider.dart';
+import '../../core/mqtt_config_provider.dart';
 import 'real_bluetooth_service.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
 
@@ -81,8 +82,9 @@ class DeviceSetupModel {
 class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
   final BluetoothService _bluetoothService;
   final PlantNannyApi _api;
+  final MqttConfig _mqttConfig;
 
-  DeviceSetupNotifier(this._bluetoothService, this._api) : super(DeviceSetupModel()) {
+  DeviceSetupNotifier(this._bluetoothService, this._api, this._mqttConfig) : super(DeviceSetupModel()) {
     _startScan();
   }
 
@@ -127,10 +129,8 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 
       final connected = await _bluetoothService.connect(device);
       _log('selectDevice: Connection result: $connected');
-      
+
       if (connected) {
-        // Connection established, now show PIN entry screen
-        // User will enter the PIN displayed on the ESP32 screen
         _log('selectDevice: Transitioning to enterPin state');
         state = state.copyWith(state: DeviceSetupState.enterPin);
       } else {
@@ -247,6 +247,20 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
         return;
       }
 
+      // Send MQTT configuration first (before WiFi, so ESP32 has it ready)
+      _log('Sending MQTT configuration to ESP32...');
+      final mqttSuccess = await endpoint.sendFullMqttConfig(
+        host: _mqttConfig.host,
+        port: _mqttConfig.port,
+        username: _mqttConfig.username,
+        password: _mqttConfig.password,
+      );
+      if (!mqttSuccess) {
+        _log('Warning: Failed to send MQTT config, continuing anyway...');
+      } else {
+        _log('MQTT configuration sent successfully');
+      }
+
       // Send WiFi credentials to ESP32
       await endpoint.sendWifiCredentials(ssid, password);
       
@@ -267,6 +281,11 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
           state: DeviceSetupState.wifiError,
           errorMessage: 'La connexion WiFi a échoué. Vérifiez le mot de passe.',
         );
+      } else if (response == null) {
+        // BLE disconnected - this often means ESP32 successfully connected to WiFi
+        // and closed BLE. Try to proceed with device registration.
+        _log('BLE disconnected during WiFi wait - assuming success');
+        await _registerDeviceWithServer();
       } else {
         state = state.copyWith(
           state: DeviceSetupState.wifiError,
@@ -305,7 +324,6 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       final deviceId = await endpoint.getDeviceId();
       
       if (deviceId == null) {
-        // No device ID available, still succeed but without server registration
         state = state.copyWith(state: DeviceSetupState.success);
         return;
       }
@@ -327,14 +345,12 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
         if (serverDeviceId != null) {
           await endpoint.sendServerId(serverDeviceId);
         }
-      } catch (apiError) {
-        // API error - device may already be registered, continue anyway
-        // Log the error but don't fail the setup
+      } catch (_) {
+        // Device may already be registered, continue anyway
       }
 
       state = state.copyWith(state: DeviceSetupState.success);
-    } catch (e) {
-      // Registration failed, but WiFi is configured so still succeed
+    } catch (_) {
       state = state.copyWith(state: DeviceSetupState.success);
     }
   }
@@ -360,5 +376,6 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 final deviceSetupProvider = StateNotifierProvider<DeviceSetupNotifier, DeviceSetupModel>((ref) {
   final bluetoothService = ref.watch(bluetoothServiceProvider);
   final api = ref.watch(apiClientProvider);
-  return DeviceSetupNotifier(bluetoothService, api);
+  final mqttConfig = ref.watch(mqttConfigProvider);
+  return DeviceSetupNotifier(bluetoothService, api, mqttConfig);
 });

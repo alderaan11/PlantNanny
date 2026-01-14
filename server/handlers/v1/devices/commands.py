@@ -1,6 +1,7 @@
 """Commands handlers - /v1/devices/{deviceId}/commands"""
 from datetime import datetime, timezone
 import logging
+import asyncio
 
 from storage import devices_store, commands_store, generate_id
 
@@ -11,6 +12,48 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.setLevel(logging.INFO)
+
+
+async def _publish_command_via_mqtt(device_id: str, command_type: str, command_data: dict) -> bool:
+    """
+    Publish command to device via MQTT for immediate delivery.
+    
+    This is the preferred method for command delivery as it's more efficient
+    than HTTP polling. The device subscribes to its command topic and receives
+    commands in real-time.
+    """
+    try:
+        from mqtt_handler import publish_device_command
+        
+        # Map command types to MQTT action format
+        action_map = {
+            "force_reading": "send_now",
+            "pump_water": "pump_water",
+            "set_interval": "set_interval",
+            "restart": "restart",
+            "ota_update": "ota_update",
+        }
+        
+        action = action_map.get(command_type, command_type)
+        
+        mqtt_command = {"action": action}
+        
+        # Add command-specific parameters
+        if command_data.get("durationMs"):
+            mqtt_command["durationMs"] = command_data["durationMs"]
+        if command_data.get("amountMl"):
+            mqtt_command["amountMl"] = command_data["amountMl"]
+        if command_data.get("intervalMs"):
+            mqtt_command["intervalMs"] = command_data["intervalMs"]
+        if command_data.get("url"):
+            mqtt_command["url"] = command_data["url"]
+        
+        success = await publish_device_command(device_id, mqtt_command)
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to publish command via MQTT: {e}")
+        return False
 
 
 def post(device_id: str, body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
@@ -39,11 +82,38 @@ def post(device_id: str, body: dict, user: dict = None, token_info: dict = None)
         "amountMl": body.get("amountMl"),
         "requestedBy": user_uid,
         "errorMessage": None,
+        "deliveryMethod": "mqtt",  # Track how command was delivered
     }
     
     if device_id not in commands_store:
         commands_store[device_id] = []
     commands_store[device_id].append(command)
+    
+    # Try to deliver command immediately via MQTT
+    # This is more efficient than waiting for the device to poll
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            async def deliver_and_update():
+                success = await _publish_command_via_mqtt(device_id, body["type"], body)
+                if success:
+                    command["status"] = "sent"
+                    command["updatedAt"] = datetime.now(timezone.utc).isoformat()
+                    logger.info(f"Command {command_id} delivered via MQTT to {device_id}")
+                else:
+                    command["deliveryMethod"] = "poll"  # Fall back to polling
+                    logger.warning(f"Command {command_id} will be delivered via polling for {device_id}")
+            
+            asyncio.create_task(deliver_and_update())
+        else:
+            # Synchronous context - run directly
+            success = loop.run_until_complete(_publish_command_via_mqtt(device_id, body["type"], body))
+            if success:
+                command["status"] = "sent"
+                command["updatedAt"] = datetime.now(timezone.utc).isoformat()
+    except Exception as e:
+        logger.warning(f"Could not deliver command via MQTT: {e}. Will use polling.")
+        command["deliveryMethod"] = "poll"
     
     return command, 201
 

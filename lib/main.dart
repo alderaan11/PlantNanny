@@ -20,8 +20,8 @@ import 'data/repositories/commands_repository_base.dart';
 import 'data/repositories/commands_repository_fake.dart';
 import 'core/server_config_provider.dart';
 
-const bool useFakeReadings = false;  // Set to false to use real MQTT data from server
-const bool useFakeDevices = false;   // Set to false to use real devices from server
+const bool useFakeReadings = false;
+const bool useFakeDevices = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,17 +31,14 @@ void main() async {
     overrides: [
       sharedPreferencesProvider.overrideWithValue(prefs),
       if (useFakeReadings)
-        // Use the fake implementation during development
         readingsRepositoryProvider.overrideWithProvider(
           Provider<ReadingsRepository>((_) => FakeReadingsRepository()),
         ),
       if (useFakeDevices)
-        // Use a fake devices repo for local development (no server required)
         devicesRepositoryProvider.overrideWithProvider(
           Provider((_) => FakeDevicesRepository()),
         ),
       if (useFakeDevices)
-        // Use fake commands as well when using fake devices (local dev)
         commandsRepositoryProvider.overrideWithProvider(
           Provider<CommandsRepositoryBase>((_) => FakeCommandsRepository()),
         ),
@@ -57,26 +54,25 @@ class PlantNannyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
 
-    // Palette de couleurs naturelles
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF606C38), // Vert olive
+      seedColor: const Color(0xFF606C38),
       brightness: Brightness.light,
-      secondary: const Color(0xFFDDA15E), // Orange doré
+      secondary: const Color(0xFFDDA15E),
     );
 
     final theme = ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFEDEDE9), // Gris beige clair
+      scaffoldBackgroundColor: const Color(0xFFEDEDE9),
       appBarTheme: AppBarTheme(
-        backgroundColor: const Color(0xFF606C38), // Vert olive
-        foregroundColor: const Color(0xFFEDEDE9), // Gris beige clair pour le texte
+        backgroundColor: const Color(0xFF606C38),
+        foregroundColor: const Color(0xFFEDEDE9),
         elevation: 0,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF606C38), // Vert olive
-          foregroundColor: const Color(0xFFEDEDE9), // Gris beige clair
+          backgroundColor: const Color(0xFF606C38),
+          foregroundColor: const Color(0xFFEDEDE9),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
@@ -143,7 +139,6 @@ class PlantNannyApp extends ConsumerWidget {
         '/devices/add': (_) => const AddPlantPage(),
         '/devices/add-bluetooth': (_) => const AddDeviceBluetoothPage(),
       },
-      // Show MainPage when signed in, otherwise LoginPage. Keep DevicesPage route available.
       home: authState.isSignedIn ? const MainPage() : const LoginPage(),
     );
   }

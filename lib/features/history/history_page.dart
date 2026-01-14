@@ -29,7 +29,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Range selector
             Card(
               color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.6),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -56,8 +55,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             ),
 
             const SizedBox(height: 12),
-
-            // Chart area
             Expanded(
               child: series.when(
                 data: (points) {
@@ -91,8 +88,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 error: (e, _) => Center(child: Text('Erreur: $e')),
               ),
             ),
-
-            // Affichage des commentaires
             if (meta?.comments != null && meta!.comments!.isNotEmpty)
               const SizedBox(height: 16),
             if (meta?.comments != null && meta!.comments!.isNotEmpty)
@@ -128,7 +123,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
 class _SimpleLineChart extends StatelessWidget {
   final List<double> values;
-  const _SimpleLineChart({required this.values, super.key});
+  const _SimpleLineChart({required this.values});
 
   @override
   Widget build(BuildContext context) {

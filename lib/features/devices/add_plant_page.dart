@@ -25,7 +25,6 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
   
   bool get _isBluetoothFlow => widget.deviceId != null;
 
-  // Simple list of plant types for selection/search
   final List<String> _plantTypes = [
     'Tomate',
     'Basilic',
@@ -56,7 +55,6 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
     try {
       final device = await ref.read(devicesRepositoryProvider).register(pairing, name: name);
 
-      // Save metadata locally for visualization
       final meta = DeviceMetadata(
         plantType: _plantType,
         isOutdoor: _isOutdoor,
@@ -66,8 +64,6 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
       ref.read(deviceMetadataProvider.notifier).setMetadata(device.deviceId, meta);
 
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appareil enregistré')));
-
-      // Navigate to dashboard for the new device
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => DashboardPage(deviceId: device.deviceId)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
@@ -113,8 +109,6 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
                       decoration: const InputDecoration(labelText: 'Nom de l\'appareil (ex: Tomates du balcon)'),
                     ),
                     const SizedBox(height: 12),
-
-                    // Plant type with simple Autocomplete for search
                     Autocomplete<String>(
                       optionsBuilder: (TextEditingValue textEditingValue) {
                         if (textEditingValue.text == '') {

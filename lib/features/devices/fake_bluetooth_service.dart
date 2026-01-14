@@ -1,14 +1,10 @@
 import 'dart:async';
 import '../../core/bluetooth_service.dart';
 
-/// Fake Bluetooth service pour le développement
 class FakeBluetoothService extends BluetoothService {
   @override
   Future<List<BluetoothEndpoint>> findNearEndpoints() async {
-    // Simule un délai de scan
     await Future.delayed(const Duration(seconds: 2));
-    
-    // Retourne quelques appareils ESP32 simulés
     return [
       FakeBluetoothEndpoint(
         id: 'ESP32-001',
@@ -27,7 +23,6 @@ class FakeBluetoothService extends BluetoothService {
   }
 }
 
-/// Fake endpoint Bluetooth pour le développement
 class FakeBluetoothEndpoint implements BluetoothEndpoint {
   @override
   final String id;
@@ -42,7 +37,6 @@ class FakeBluetoothEndpoint implements BluetoothEndpoint {
 
   @override
   Future<bool> connect() async {
-    // Simule un délai de connexion
     await Future.delayed(const Duration(seconds: 1));
     _isConnected = true;
     return true;
@@ -55,14 +49,8 @@ class FakeBluetoothEndpoint implements BluetoothEndpoint {
 
   @override
   Future<void> send(String message) async {
-    if (!_isConnected) {
-      throw Exception('Not connected');
-    }
-    
-    // Simule l'envoi et répond avec un message de confirmation
+    if (!_isConnected) throw Exception('Not connected');
     await Future.delayed(const Duration(milliseconds: 500));
-    
-    // Simule une réponse de l'ESP32
     if (message.contains('PIN:')) {
       _messageController.add('PIN_OK');
     } else if (message.contains('WIFI:')) {

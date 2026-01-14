@@ -1,6 +1,15 @@
 """
 MQTT Handler for PlantNanny Server
-Subscribes to sensor data topics and stores readings
+Subscribes to sensor data topics and publishes commands to ESP32 devices
+
+Topic Structure:
+    devices/<device_id>/data     - ESP32 → Server (telemetry)
+    devices/<device_id>/command  - Server → ESP32 (commands)
+    devices/<device_id>/status   - Device status (online/offline via LWT)
+
+Legacy Topics (for backward compatibility):
+    plantnanny/<device_id>/sensors - Periodic sensor readings
+    plantnanny/<device_id>/status  - Device status
 """
 import asyncio
 import json
@@ -20,12 +29,21 @@ logger = logging.getLogger("plant_nanny.mqtt")
 
 class MQTTHandler:
     """
-    Handles MQTT connections and subscriptions for receiving sensor data from ESP32 devices.
+    Handles MQTT connections and subscriptions for receiving sensor data from ESP32 devices
+    and publishing commands to them.
     
-    Topics:
+    Topics (new structure):
+        devices/{deviceId}/data     - Sensor readings (JSON)
+        devices/{deviceId}/command  - Commands to device (JSON)
+        devices/{deviceId}/status   - Device online/offline status (JSON)
+    
+    Topics (legacy):
         plantnanny/{deviceId}/sensors - Periodic sensor readings
         plantnanny/{deviceId}/status  - Device online/offline status
     """
+    
+    # QoS level for reliable delivery
+    MQTT_QOS = 1
     
     def __init__(
         self,
@@ -40,6 +58,7 @@ class MQTTHandler:
         self.password = password
         self._running = False
         self._task: Optional[asyncio.Task] = None
+        self._client: Optional[aiomqtt.Client] = None
         self._on_reading_callback: Optional[Callable[[str, dict], Awaitable[None]]] = None
         self._on_status_callback: Optional[Callable[[str, str], Awaitable[None]]] = None
         
@@ -91,46 +110,118 @@ class MQTTHandler:
                 except:
                     pass
     
+    async def publish_command(self, device_id: str, command: dict) -> bool:
+        """
+        Publish a command to a specific device.
+        
+        Args:
+            device_id: Target device ID
+            command: Command dict with 'action' and optional parameters
+                     e.g., {"action": "send_now"} or {"action": "pump_water", "durationMs": 5000}
+        
+        Returns:
+            True if published successfully, False otherwise
+        """
+        if not self._client:
+            logger.warning("Cannot publish command: MQTT client not connected")
+            return False
+        
+        try:
+            # Try new topic structure first
+            topic = f"devices/{device_id}/command"
+            payload = json.dumps(command)
+            
+            await self._client.publish(topic, payload, qos=self.MQTT_QOS)
+            logger.info(f"Published command to {device_id}: {command}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to publish command to {device_id}: {e}")
+            return False
+    
+    async def force_device_reading(self, device_id: str) -> bool:
+        """
+        Send a 'send_now' command to force a device to send its current sensor reading.
+        
+        This is the recommended way to get immediate data from a device after registration
+        or when real-time data is needed.
+        
+        Args:
+            device_id: Target device ID
+            
+        Returns:
+            True if command published successfully
+        """
+        return await self.publish_command(device_id, {"action": "send_now"})
+    
     async def _handle_message(self, topic: str, payload: bytes):
         """Process incoming MQTT messages."""
         try:
             topic_parts = topic.split("/")
-            if len(topic_parts) < 3 or topic_parts[0] != "plantnanny":
-                logger.warning(f"Ignoring message on unexpected topic: {topic}")
+            
+            # Handle new topic structure: devices/<device_id>/data or devices/<device_id>/status
+            if len(topic_parts) >= 3 and topic_parts[0] == "devices":
+                device_id = topic_parts[1]
+                message_type = topic_parts[2]
+                
+                if message_type == "data":
+                    await self._handle_sensor_data(device_id, payload)
+                elif message_type == "status":
+                    await self._handle_status(device_id, payload)
                 return
             
-            device_id = topic_parts[1]
-            message_type = topic_parts[2]
+            # Handle legacy topic structure: plantnanny/<device_id>/sensors or status
+            if len(topic_parts) >= 3 and topic_parts[0] == "plantnanny":
+                device_id = topic_parts[1]
+                message_type = topic_parts[2]
+                
+                if message_type == "sensors":
+                    await self._handle_sensor_data(device_id, payload)
+                elif message_type == "status":
+                    await self._handle_status(device_id, payload)
+                return
             
-            if message_type == "sensors":
-                data = json.loads(payload.decode("utf-8"))
-                logger.info(f"Received sensor data from {device_id}: {data}")
-                
-                # Validate and normalize the reading
-                reading = {
-                    "temperatureC": data.get("temperatureC"),
-                    "humidityPct": data.get("humidityPct"),
-                    "luminosityPct": data.get("luminosityPct"),
-                    "ts": data.get("ts") or datetime.now(timezone.utc).isoformat(),
-                }
-                
-                if self._on_reading_callback:
-                    await self._on_reading_callback(device_id, reading)
-                
-                # Notify real-time subscribers
-                await self._notify_realtime_subscribers(device_id, reading)
-                    
-            elif message_type == "status":
-                status = payload.decode("utf-8")
-                logger.info(f"Device {device_id} status: {status}")
-                
-                if self._on_status_callback:
-                    await self._on_status_callback(device_id, status)
+            logger.warning(f"Ignoring message on unexpected topic: {topic}")
                     
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON payload: {e}")
         except Exception as e:
             logger.exception(f"Error handling MQTT message: {e}")
+    
+    async def _handle_sensor_data(self, device_id: str, payload: bytes):
+        """Handle incoming sensor data from a device."""
+        data = json.loads(payload.decode("utf-8"))
+        logger.info(f"Received sensor data from {device_id}: {data}")
+        
+        # Validate and normalize the reading
+        reading = {
+            "temperatureC": data.get("temperatureC"),
+            "humidityPct": data.get("humidityPct"),
+            "luminosityPct": data.get("luminosityPct"),
+            "ts": data.get("ts") or datetime.now(timezone.utc).isoformat(),
+            "uptime": data.get("uptime"),
+        }
+        
+        if self._on_reading_callback:
+            await self._on_reading_callback(device_id, reading)
+        
+        # Notify real-time subscribers
+        await self._notify_realtime_subscribers(device_id, reading)
+    
+    async def _handle_status(self, device_id: str, payload: bytes):
+        """Handle device status update (online/offline from LWT)."""
+        try:
+            # Try JSON format first (new format)
+            data = json.loads(payload.decode("utf-8"))
+            status = data.get("status", "unknown")
+        except json.JSONDecodeError:
+            # Fall back to plain text (legacy format)
+            status = payload.decode("utf-8")
+        
+        logger.info(f"Device {device_id} status: {status}")
+        
+        if self._on_status_callback:
+            await self._on_status_callback(device_id, status)
     
     async def start(self):
         """Start the MQTT subscriber."""
@@ -153,10 +244,18 @@ class MQTTHandler:
                     username=self.username,
                     password=self.password,
                 ) as client:
-                    # Subscribe to all plantnanny topics
-                    await client.subscribe("plantnanny/+/sensors")
-                    await client.subscribe("plantnanny/+/status")
-                    logger.info("Subscribed to plantnanny/+/sensors and plantnanny/+/status")
+                    # Store client reference for publishing commands
+                    self._client = client
+                    
+                    # Subscribe to new topic structure (devices/<id>/data, devices/<id>/status)
+                    await client.subscribe("devices/+/data", qos=self.MQTT_QOS)
+                    await client.subscribe("devices/+/status", qos=self.MQTT_QOS)
+                    logger.info("Subscribed to devices/+/data and devices/+/status")
+                    
+                    # Subscribe to legacy topics for backward compatibility
+                    await client.subscribe("plantnanny/+/sensors", qos=self.MQTT_QOS)
+                    await client.subscribe("plantnanny/+/status", qos=self.MQTT_QOS)
+                    logger.info("Subscribed to plantnanny/+/sensors and plantnanny/+/status (legacy)")
                     
                     async for message in client.messages:
                         await self._handle_message(
@@ -171,6 +270,8 @@ class MQTTHandler:
                 if self._running:
                     logger.error(f"MQTT connection error: {e}. Reconnecting in 5s...")
                     await asyncio.sleep(5)
+            finally:
+                self._client = None
     
     async def stop(self):
         """Stop the MQTT subscriber."""
@@ -181,6 +282,7 @@ class MQTTHandler:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        self._client = None
         logger.info("MQTT handler stopped")
 
 
@@ -191,6 +293,52 @@ _mqtt_handler: Optional[MQTTHandler] = None
 def get_mqtt_handler() -> Optional[MQTTHandler]:
     """Get the global MQTT handler instance."""
     return _mqtt_handler
+
+
+async def force_device_reading(device_id: str) -> bool:
+    """
+    Send a force reading command to a device via MQTT.
+    
+    This is the recommended way to get immediate data from a device after registration
+    or when real-time data is needed. The device will respond by publishing its
+    current sensor readings.
+    
+    Args:
+        device_id: Target device ID
+        
+    Returns:
+        True if command was published successfully, False otherwise
+    """
+    if not _mqtt_handler:
+        logger.warning("MQTT handler not initialized, cannot force device reading")
+        return False
+    
+    return await _mqtt_handler.force_device_reading(device_id)
+
+
+async def publish_device_command(device_id: str, command: dict) -> bool:
+    """
+    Publish a command to a device via MQTT.
+    
+    Command examples:
+        {"action": "send_now"}                              - Force immediate sensor reading
+        {"action": "pump_water", "durationMs": 5000}        - Activate water pump
+        {"action": "set_interval", "intervalMs": 30000}     - Change publish interval
+        {"action": "restart"}                               - Restart device
+        {"action": "ota_update", "url": "http://..."}       - Trigger OTA update
+    
+    Args:
+        device_id: Target device ID
+        command: Command dictionary with 'action' and optional parameters
+        
+    Returns:
+        True if command was published successfully
+    """
+    if not _mqtt_handler:
+        logger.warning("MQTT handler not initialized, cannot publish command")
+        return False
+    
+    return await _mqtt_handler.publish_command(device_id, command)
 
 
 async def setup_mqtt_handler(
@@ -239,8 +387,9 @@ async def setup_mqtt_handler(
         reading["id"] = generate_id()
         reading["deviceId"] = device_id
         
-        # Update device lastSeen
+        # Update device lastSeen and mark as online
         devices_store[device_id]["lastSeen"] = datetime.now(timezone.utc).isoformat()
+        devices_store[device_id]["lastStatus"] = "online"
         
         # Store the reading
         if device_id not in readings_store:

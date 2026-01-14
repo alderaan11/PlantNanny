@@ -9,8 +9,6 @@ class DashboardRequest {
   final TimeRange range;
   const DashboardRequest({required this.deviceId, required this.range});
 
-  // Important: provide value equality so the Provider.family cache can
-  // reuse the same result when the deviceId/range are identical between rebuilds.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -27,7 +25,6 @@ final dashboardAggregatedProvider = FutureProvider.family<List<Map<String, dynam
   final repo = ref.read(readingsRepositoryProvider);
   final readings = await repo.history(req.deviceId, limit: 1000);
 
-  // Convert ts to DateTime (handle both String and DateTime)
   DateTime toDate(dynamic ts) {
     if (ts == null) return DateTime.fromMillisecondsSinceEpoch(0);
     if (ts is DateTime) return ts.toUtc();
@@ -36,8 +33,6 @@ final dashboardAggregatedProvider = FutureProvider.family<List<Map<String, dynam
   }
 
   final now = DateTime.now().toUtc();
-
-  // Filter and bucket
   Map<DateTime, List<Reading>> buckets = {};
 
   if (req.range == TimeRange.day) {
@@ -48,7 +43,6 @@ final dashboardAggregatedProvider = FutureProvider.family<List<Map<String, dynam
       final bucket = DateTime.utc(ts.year, ts.month, ts.day, ts.hour);
       buckets.putIfAbsent(bucket, () => []).add(r);
     }
-    // Ensure buckets for each hour exist
     for (int i = 0; i < 24; i++) {
       final b = DateTime.utc(now.year, now.month, now.day, now.hour).subtract(Duration(hours: i));
       buckets.putIfAbsent(b, () => []);
@@ -78,7 +72,6 @@ final dashboardAggregatedProvider = FutureProvider.family<List<Map<String, dynam
       buckets.putIfAbsent(b, () => []);
     }
   } else {
-    // year - bucket by month
     final cutoff = DateTime.utc(now.year - 1, now.month, now.day);
     final filtered = readings.where((r) => toDate(r.ts).isAfter(cutoff));
     for (final r in filtered) {
@@ -94,7 +87,6 @@ final dashboardAggregatedProvider = FutureProvider.family<List<Map<String, dynam
     }
   }
 
-  // Compute averages per bucket (temperature)
   final points = buckets.entries.map((e) {
     final list = e.value;
     double avgTemp = 0;
@@ -113,8 +105,6 @@ final dashboardAggregatedProvider = FutureProvider.family<List<Map<String, dynam
       'count': list.length,
     };
   }).toList();
-
-  // Sort by time ascending
   points.sort((a, b) => (a['ts'] as DateTime).compareTo(b['ts'] as DateTime));
   return points;
 });

@@ -1,8 +1,12 @@
 """Device handlers - /v1/devices"""
 from datetime import datetime, timezone, timedelta
 import random
+import asyncio
+import logging
 
 from storage import devices_store, device_keys, readings_store, generate_id
+
+logger = logging.getLogger("plant_nanny.devices")
 
 
 def get(user: dict = None, token_info: dict = None) -> tuple[dict, int]:
@@ -19,6 +23,19 @@ def get(user: dict = None, token_info: dict = None) -> tuple[dict, int]:
         "count": len(user_devices),
         "items": user_devices,
     }, 200
+
+
+async def _force_reading_async(device_id: str):
+    """Send force reading command to device via MQTT."""
+    try:
+        from mqtt_handler import force_device_reading
+        success = await force_device_reading(device_id)
+        if success:
+            logger.info(f"Force reading command sent to {device_id}")
+        else:
+            logger.warning(f"Failed to send force reading command to {device_id}")
+    except Exception as e:
+        logger.error(f"Error sending force reading command to {device_id}: {e}")
 
 
 def register_post(body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
@@ -48,12 +65,26 @@ def register_post(body: dict, user: dict = None, token_info: dict = None) -> tup
         "createdAt": now.isoformat(),
         "lastSeen": now.isoformat(),
         "firmwareVersion": "1.0.0-dev",
+        "lastStatus": "unknown",  # Will be updated when device connects
     }
     devices_store[device_id] = device
     
     # Create a device API key for the device
     api_key = f"device-key-{device_id}"
     device_keys[api_key] = device_id
+    
+    # Send force reading command to device via MQTT
+    # This triggers the device to send its current sensor data immediately
+    # so the frontend can display data right away
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Schedule the async task without blocking
+            asyncio.create_task(_force_reading_async(device_id))
+        else:
+            loop.run_until_complete(_force_reading_async(device_id))
+    except Exception as e:
+        logger.warning(f"Could not send force reading command during registration: {e}")
     
     # Seed fake readings for development (last 24 hours)
     _seed_fake_readings_for_device(device_id, now)

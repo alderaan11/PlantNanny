@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import '../../core/server_config_provider.dart';
+import 'mqtt_config_page.dart';
 
 /// Connection status enum
 enum ConnectionStatus { unknown, checking, connected, failed }
@@ -24,10 +25,9 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
   @override
   void initState() {
     super.initState();
-    // Initialize with current server URL
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _urlController.text = ref.read(serverConfigProvider);
-      _checkConnection(); // Auto-check on load
+      _checkConnection();
     });
   }
 
@@ -37,7 +37,6 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
     super.dispose();
   }
 
-  /// Test connection to the server
   Future<void> _checkConnection() async {
     final serverUrl = ref.read(serverConfigProvider);
     setState(() {
@@ -154,10 +153,8 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Connection status card
                 _buildConnectionStatusCard(),
                 const SizedBox(height: 16),
-                // Server configuration section
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -242,7 +239,6 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Reset button
                 Center(
                   child: TextButton.icon(
                     onPressed: _resetToDefault,
@@ -250,8 +246,23 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
                     label: const Text('Réinitialiser par défaut'),
                   ),
                 ),
+                const SizedBox(height: 16),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.router, color: Color(0xFF606C38)),
+                    title: const Text('Configuration MQTT'),
+                    subtitle: const Text('Paramètres du broker MQTT'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const MqttConfigPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
                 const SizedBox(height: 32),
-                // Help text
                 Card(
                   color: Colors.blue.shade50,
                   child: Padding(

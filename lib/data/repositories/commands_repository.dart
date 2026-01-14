@@ -1,11 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:plant_nanny/core/api_client_provider.dart';
 import 'package:plant_nanny_api/plant_nanny_api.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:plant_nanny_api/plant_nanny_api.dart';
 import 'commands_repository_base.dart';
-import 'package:plant_nanny/core/api_client_provider.dart';
 
 final commandsRepositoryProvider = Provider<CommandsRepositoryBase>((ref) {
   return CommandsRepository(ref.watch(apiClientProvider).getCommandsApi());
@@ -31,7 +27,7 @@ class CommandsRepository implements CommandsRepositoryBase {
       deviceId: deviceId,
       commandIn: CommandIn((CommandInBuilder b) {
         b.type = CommandType.pumpWater;
-        b.durationMs = durationSec * 1000; // Convertir secondes en millisecondes pour l'API
+        b.durationMs = durationSec * 1000;
       }),
     );
   }

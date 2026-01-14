@@ -1,5 +1,4 @@
 class AuthRepository {
-  // Replace these stubs with real implementation (Firebase, backend, etc.)
   Future<String> signIn(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
     if (email == 'fail@example.com') throw Exception('Invalid credentials');
@@ -13,7 +12,6 @@ class AuthRepository {
 
   Future<void> sendPasswordReset(String email) async {
     await Future.delayed(const Duration(seconds: 1));
-    // no-op for stub
   }
 
   Future<void> signOut() async {

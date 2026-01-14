@@ -25,7 +25,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     if (!_formKey.currentState!.validate()) return;
     try {
       await ref.read(authNotifierProvider.notifier).signUp(_emailController.text.trim(), _passwordController.text);
-      Navigator.of(context).pop(); // back to login
+      Navigator.of(context).pop();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Inscription échouée: ${e.toString()}')));
     }

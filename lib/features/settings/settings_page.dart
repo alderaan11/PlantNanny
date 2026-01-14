@@ -121,7 +121,7 @@ class ArrosagePage extends ConsumerWidget {
                 ElevatedButton(
                   onPressed: () => _pumpAll(context, ref, list),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF606C38), // Vert olive (même couleur que les FAB)
+                    backgroundColor: const Color(0xFF606C38),
                     foregroundColor: Colors.white,
                   ),
                   child: const Text('Arroser tous'),
@@ -137,7 +137,6 @@ class ArrosagePage extends ConsumerWidget {
   }
 }
 
-// Widget stateful pour le slider afin d'éviter les problèmes d'overlay
 class _SliderListTile extends StatefulWidget {
   final Device device;
   final int currentValue;
@@ -210,7 +209,7 @@ class _SliderListTileState extends State<_SliderListTile> {
       trailing: ElevatedButton(
         onPressed: widget.onPump,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF606C38), // Vert olive (même couleur que les FAB)
+          backgroundColor: const Color(0xFF606C38),
           foregroundColor: Colors.white,
         ),
         child: const Text('Arroser'),

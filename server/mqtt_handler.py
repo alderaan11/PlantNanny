@@ -26,6 +26,13 @@ except ImportError:
 
 logger = logging.getLogger("plant_nanny.mqtt")
 
+# Ensure logging is visible
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+
 
 class MQTTHandler:
     """
@@ -341,6 +348,59 @@ async def publish_device_command(device_id: str, command: dict) -> bool:
     return await _mqtt_handler.publish_command(device_id, command)
 
 
+async def trigger_ota_update(device_id: str, firmware_url: str) -> bool:
+    """
+    Trigger OTA update on a specific device.
+    
+    Args:
+        device_id: Target device ID
+        firmware_url: Full URL to the firmware binary
+        
+    Returns:
+        True if command was published successfully
+    """
+    logger.info(f"Triggering OTA update for {device_id} with URL: {firmware_url}")
+    return await publish_device_command(device_id, {
+        "action": "ota_update",
+        "url": firmware_url,
+    })
+
+
+async def trigger_ota_for_all_devices(firmware_url: str, exclude_version: str = None) -> dict:
+    """
+    Trigger OTA update for all registered devices.
+    
+    Args:
+        firmware_url: Full URL to the firmware binary
+        exclude_version: Skip devices already on this version
+        
+    Returns:
+        Dict with 'success' count and 'failed' list
+    """
+    import database as db
+    
+    results = {"success": 0, "failed": [], "skipped": []}
+    
+    # Get all devices from database (all owners)
+    # For OTA broadcast, we typically want to update all devices
+    devices = await db.get_all_devices()
+    
+    for device in devices:
+        device_id = device.device_id
+        if exclude_version and device.firmware_version == exclude_version:
+            results["skipped"].append(device_id)
+            continue
+            
+        success = await trigger_ota_update(device_id, firmware_url)
+        if success:
+            results["success"] += 1
+        else:
+            results["failed"].append(device_id)
+    
+    logger.info(f"OTA broadcast complete: {results['success']} success, {len(results['failed'])} failed, {len(results['skipped'])} skipped")
+    return results
+
+
 async def setup_mqtt_handler(
     broker_host: str = "localhost",
     broker_port: int = 1883,
@@ -361,7 +421,7 @@ async def setup_mqtt_handler(
     """
     global _mqtt_handler
     
-    from storage import readings_store, devices_store
+    import database as db
     
     _mqtt_handler = MQTTHandler(
         broker_host=broker_host,
@@ -371,44 +431,58 @@ async def setup_mqtt_handler(
     )
     
     async def on_reading(device_id: str, reading: dict):
-        """Store received sensor reading."""
-        from storage import generate_id
-        
-        # Check if device exists, create if not
-        if device_id not in devices_store:
-            logger.info(f"Auto-registering device {device_id}")
-            devices_store[device_id] = {
-                "deviceId": device_id,
-                "name": f"Device {device_id}",
-                "ownerUid": None,
-            }
-        
-        # Add id and deviceId to the reading
-        reading["id"] = generate_id()
-        reading["deviceId"] = device_id
-        
-        # Update device lastSeen and mark as online
-        devices_store[device_id]["lastSeen"] = datetime.now(timezone.utc).isoformat()
-        devices_store[device_id]["lastStatus"] = "online"
-        
-        # Store the reading
-        if device_id not in readings_store:
-            readings_store[device_id] = []
-        
-        readings_store[device_id].append(reading)
-        
-        # Keep only last 1000 readings per device
-        if len(readings_store[device_id]) > 1000:
-            readings_store[device_id] = readings_store[device_id][-1000:]
-        
-        logger.debug(f"Stored reading for {device_id}: {reading}")
+        """Store received sensor reading in PostgreSQL database."""
+        try:
+            # Check if device exists in database
+            device = await db.get_device(device_id)
+            
+            if device is None:
+                # Auto-register the device
+                logger.info(f"Auto-registering device {device_id} in database")
+                await db.create_device(
+                    device_id=device_id,
+                    name=f"Device {device_id}",
+                    owner_uid="unassigned",  # Will be claimed by user later
+                )
+            
+            # Parse timestamp - ESP32 sends uptime in seconds, not ISO8601
+            ts = reading.get("ts")
+            if ts is None:
+                ts = datetime.now(timezone.utc)
+            elif isinstance(ts, int):
+                # ESP32 sends uptime in seconds - use current server time instead
+                ts = datetime.now(timezone.utc)
+            elif isinstance(ts, str):
+                try:
+                    ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                except ValueError:
+                    ts = datetime.now(timezone.utc)
+            else:
+                ts = datetime.now(timezone.utc)
+            
+            # Store reading in database
+            await db.create_reading(
+                device_id=device_id,
+                temperature_c=reading.get("temperatureC"),
+                humidity_pct=reading.get("humidityPct"),
+                luminosity_pct=reading.get("luminosityPct"),
+                ts=ts,
+            )
+            
+            logger.info(f"Stored reading in DB for {device_id}: temp={reading.get('temperatureC')}, lum={reading.get('luminosityPct')}")
+            
+        except Exception as e:
+            logger.error(f"Failed to store reading for {device_id}: {e}")
     
     async def on_status(device_id: str, status: str):
-        """Update device status."""
-        if device_id in devices_store:
-            devices_store[device_id]["lastStatus"] = status
-            devices_store[device_id]["lastSeen"] = datetime.now(timezone.utc).isoformat()
-            logger.debug(f"Updated status for {device_id}: {status}")
+        """Update device status in database."""
+        try:
+            device = await db.get_device(device_id)
+            if device:
+                await db.update_device(device_id, last_status=status)
+                logger.debug(f"Updated status for {device_id}: {status}")
+        except Exception as e:
+            logger.error(f"Failed to update status for {device_id}: {e}")
     
     _mqtt_handler.on_reading(on_reading)
     _mqtt_handler.on_status(on_status)

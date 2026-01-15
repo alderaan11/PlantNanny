@@ -169,11 +169,17 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
       RealBluetoothService.pinCharUuid: () => _pinChar = char,
     };
     
+    bool found = false;
     for (final entry in mapping.entries) {
       if (uuid == entry.key.toLowerCase()) {
         entry.value();
+        _log('Mapped characteristic: $uuid');
+        found = true;
         break;
       }
+    }
+    if (!found) {
+      _log('Unknown characteristic: $uuid');
     }
   }
 
@@ -308,13 +314,25 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     }
   }
 
+  @override
   Future<String?> getDeviceId() async {
+    _log('getDeviceId: _deviceIdChar is ${_deviceIdChar == null ? "null" : "available"}');
+    if (_deviceIdChar == null) {
+      _log('getDeviceId: Device ID characteristic not found during BLE discovery');
+      return null;
+    }
     try {
-      if (_deviceIdChar != null) return utf8.decode(await _deviceIdChar!.read());
-    } catch (_) {}
-    return null;
+      final bytes = await _deviceIdChar!.read();
+      final deviceId = utf8.decode(bytes);
+      _log('getDeviceId: Read device ID = $deviceId');
+      return deviceId.isNotEmpty ? deviceId : null;
+    } catch (e) {
+      _log('getDeviceId: Error reading characteristic: $e');
+      return null;
+    }
   }
 
+  @override
   Future<String?> getIpAddress() async {
     try {
       if (_ipAddressChar != null) {
@@ -325,6 +343,7 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     return null;
   }
 
+  @override
   Future<String?> waitForIpAddress({Duration timeout = const Duration(seconds: 30)}) async {
     try {
       final existingIp = await getIpAddress();

@@ -7,12 +7,12 @@ class FakeBluetoothService extends BluetoothService {
     await Future.delayed(const Duration(seconds: 2));
     return [
       FakeBluetoothEndpoint(
-        id: 'ESP32-001',
-        name: 'PlantNanny-ESP32-001',
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        name: 'PlantNanny-001',
       ),
       FakeBluetoothEndpoint(
-        id: 'ESP32-002',
-        name: 'PlantNanny-ESP32-002',
+        id: 'a1b2c3d4-e5f6-4789-abcd-ef0123456789',
+        name: 'PlantNanny-002',
       ),
     ];
   }
@@ -74,5 +74,23 @@ class FakeBluetoothEndpoint implements BluetoothEndpoint {
   Future<void> close() async {
     _isConnected = false;
     await _messageController.close();
+  }
+
+  /// Get the device UUID (same as id for fake implementation)
+  @override
+  Future<String?> getDeviceId() async {
+    return id;
+  }
+
+  /// Get a fake IP address after "connecting"
+  @override
+  Future<String?> getIpAddress() async {
+    return _isConnected ? '192.168.1.100' : null;
+  }
+
+  /// Wait for IP address (returns immediately for fake)
+  @override
+  Future<String?> waitForIpAddress({Duration timeout = const Duration(seconds: 30)}) async {
+    return await getIpAddress();
   }
 }

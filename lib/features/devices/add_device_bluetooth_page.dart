@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'device_setup_provider.dart';
+import 'devices_controller.dart';
+import 'real_bluetooth_service.dart';
 import '../../core/bluetooth_service.dart';
 
 /// Page principale pour l'ajout d'un nouvel appareil via Bluetooth
@@ -8,10 +10,12 @@ class AddDeviceBluetoothPage extends ConsumerStatefulWidget {
   const AddDeviceBluetoothPage({super.key});
 
   @override
-  ConsumerState<AddDeviceBluetoothPage> createState() => _AddDeviceBluetoothPageState();
+  ConsumerState<AddDeviceBluetoothPage> createState() =>
+      _AddDeviceBluetoothPageState();
 }
 
-class _AddDeviceBluetoothPageState extends ConsumerState<AddDeviceBluetoothPage> {
+class _AddDeviceBluetoothPageState
+    extends ConsumerState<AddDeviceBluetoothPage> {
   @override
   void initState() {
     super.initState();
@@ -26,14 +30,16 @@ class _AddDeviceBluetoothPageState extends ConsumerState<AddDeviceBluetoothPage>
     final setupState = ref.watch(deviceSetupProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ajouter un appareil'),
-      ),
+      appBar: AppBar(title: const Text('Ajouter un appareil')),
       body: _buildBody(context, ref, setupState),
     );
   }
 
-  Widget _buildBody(BuildContext context, WidgetRef ref, DeviceSetupModel state) {
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    DeviceSetupModel state,
+  ) {
     switch (state.state) {
       case DeviceSetupState.scanning:
         return const _ScanningView();
@@ -56,7 +62,9 @@ class _AddDeviceBluetoothPageState extends ConsumerState<AddDeviceBluetoothPage>
       case DeviceSetupState.error:
         return _ErrorView(message: state.errorMessage ?? 'Erreur inconnue');
       case DeviceSetupState.wifiError:
-        return _WifiErrorView(message: state.errorMessage ?? 'Erreur de connexion WiFi');
+        return _WifiErrorView(
+          message: state.errorMessage ?? 'Erreur de connexion WiFi',
+        );
     }
   }
 }
@@ -178,7 +186,7 @@ class _ConnectingView extends StatelessWidget {
 /// Vue de saisie du code PIN
 class _PinEntryView extends ConsumerStatefulWidget {
   final String? errorMessage;
-  
+
   const _PinEntryView({this.errorMessage});
 
   @override
@@ -296,7 +304,7 @@ class _WifiSelectionView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final setupState = ref.watch(deviceSetupProvider);
     final networks = setupState.wifiNetworks;
-    
+
     return Column(
       children: [
         Padding(
@@ -345,7 +353,10 @@ class _WifiSelectionView extends ConsumerWidget {
               itemBuilder: (context, index) {
                 if (index == networks.length) {
                   return Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     child: ListTile(
                       leading: const Icon(Icons.edit, color: Colors.grey),
                       title: const Text('Entrer manuellement'),
@@ -354,16 +365,21 @@ class _WifiSelectionView extends ConsumerWidget {
                     ),
                   );
                 }
-                
+
                 final network = networks[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: ListTile(
                     leading: const Icon(Icons.wifi, color: Colors.green),
                     title: Text(network),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () {
-                      ref.read(deviceSetupProvider.notifier).selectWifi(network);
+                      ref
+                          .read(deviceSetupProvider.notifier)
+                          .selectWifi(network);
                     },
                   ),
                 );
@@ -397,7 +413,9 @@ class _WifiSelectionView extends ConsumerWidget {
             onPressed: () {
               if (controller.text.isNotEmpty) {
                 Navigator.pop(context);
-                ref.read(deviceSetupProvider.notifier).selectWifi(controller.text);
+                ref
+                    .read(deviceSetupProvider.notifier)
+                    .selectWifi(controller.text);
               }
             },
             child: const Text('OK'),
@@ -448,8 +466,8 @@ class _WifiPasswordViewState extends ConsumerState<_WifiPasswordView> {
             Text(
               'Réseau: ${widget.ssid}',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 32),
             TextFormField(
@@ -460,7 +478,9 @@ class _WifiPasswordViewState extends ConsumerState<_WifiPasswordView> {
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.lock),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
                   onPressed: () {
                     setState(() {
                       _obscurePassword = !_obscurePassword;
@@ -481,7 +501,9 @@ class _WifiPasswordViewState extends ConsumerState<_WifiPasswordView> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      ref.read(deviceSetupProvider.notifier).backToWifiSelection();
+                      ref
+                          .read(deviceSetupProvider.notifier)
+                          .backToWifiSelection();
                     },
                     child: const Text('Retour'),
                   ),
@@ -491,7 +513,9 @@ class _WifiPasswordViewState extends ConsumerState<_WifiPasswordView> {
                   child: ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
-                        ref.read(deviceSetupProvider.notifier).submitWifiCredentials(_passwordController.text);
+                        ref
+                            .read(deviceSetupProvider.notifier)
+                            .submitWifiCredentials(_passwordController.text);
                       }
                     },
                     child: const Text('Configurer'),
@@ -540,13 +564,46 @@ class _SuccessViewState extends ConsumerState<_SuccessView> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
+    // Invalidate devices controller to refresh the device list
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(devicesControllerProvider);
+    });
+    Future.delayed(const Duration(seconds: 2), () async {
       if (mounted) {
-        final deviceId = ref.read(deviceSetupProvider).selectedDevice?.id;
-        Navigator.of(context).pushReplacementNamed(
-          '/devices/configure',
-          arguments: deviceId,
-        );
+        final setupState = ref.read(deviceSetupProvider);
+        // Use the server-registered device ID
+        String? deviceId = setupState.registeredDeviceId;
+        
+        // If not available, use cached device ID (saved before BLE disconnect)
+        if (deviceId == null || deviceId.isEmpty) {
+          deviceId = setupState.cachedDeviceId;
+        }
+        
+        // Last resort: try to get from BLE (likely to fail if disconnected)
+        if ((deviceId == null || deviceId.isEmpty) && setupState.selectedDevice != null) {
+          if (setupState.selectedDevice is RealBluetoothEndpoint) {
+            final endpoint = setupState.selectedDevice as RealBluetoothEndpoint;
+            try {
+              deviceId = await endpoint.getDeviceId();
+            } catch (_) {
+              // Fall through to error case
+            }
+          }
+        }
+        
+        // If still no device ID, show error - do NOT use MAC address
+        if (deviceId == null || deviceId.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Erreur: ID d\'appareil non disponible')),
+            );
+          }
+          return;
+        }
+        
+        Navigator.of(
+          context,
+        ).pushReplacementNamed('/devices/configure', arguments: deviceId);
       }
     });
   }
@@ -591,10 +648,7 @@ class _ErrorView extends ConsumerWidget {
           children: [
             const Icon(Icons.error, size: 80, color: Colors.red),
             const SizedBox(height: 24),
-            Text(
-              'Erreur',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Erreur', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               message,

@@ -20,17 +20,17 @@ final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
 
 /// États possibles du flux d'ajout d'appareil
 enum DeviceSetupState {
-  scanning,      // Scan BLE en cours
-  selectDevice,  // Sélection de l'appareil
-  connecting,    // Connexion BLE en cours
-  enterPin,      // Saisie du code PIN affiché sur l'appareil
-  selectWifi,    // Sélection du réseau WiFi
+  scanning, // Scan BLE en cours
+  selectDevice, // Sélection de l'appareil
+  connecting, // Connexion BLE en cours
+  enterPin, // Saisie du code PIN affiché sur l'appareil
+  selectWifi, // Sélection du réseau WiFi
   enterWifiPass, // Saisie du mot de passe WiFi
-  sending,       // Envoi des données
-  waitingWifi,   // Attente de la connexion WiFi sur ESP32
-  success,       // Succès
-  error,         // Erreur
-  wifiError,     // Erreur WiFi - peut réessayer
+  sending, // Envoi des données
+  waitingWifi, // Attente de la connexion WiFi sur ESP32
+  success, // Succès
+  error, // Erreur
+  wifiError, // Erreur WiFi - peut réessayer
 }
 
 /// État de la configuration de l'appareil
@@ -43,6 +43,8 @@ class DeviceSetupModel {
   final String? wifiPassword;
   final String? errorMessage;
   final List<String> wifiNetworks;
+  final String? registeredDeviceId;
+  final String? cachedDeviceId;  // Cached early before BLE disconnects
 
   DeviceSetupModel({
     this.state = DeviceSetupState.scanning,
@@ -53,6 +55,8 @@ class DeviceSetupModel {
     this.wifiPassword,
     this.errorMessage,
     this.wifiNetworks = const [],
+    this.registeredDeviceId,
+    this.cachedDeviceId,
   });
 
   DeviceSetupModel copyWith({
@@ -64,6 +68,8 @@ class DeviceSetupModel {
     String? wifiPassword,
     String? errorMessage,
     List<String>? wifiNetworks,
+    String? registeredDeviceId,
+    String? cachedDeviceId,
   }) {
     return DeviceSetupModel(
       state: state ?? this.state,
@@ -74,6 +80,8 @@ class DeviceSetupModel {
       wifiPassword: wifiPassword ?? this.wifiPassword,
       errorMessage: errorMessage ?? this.errorMessage,
       wifiNetworks: wifiNetworks ?? this.wifiNetworks,
+      registeredDeviceId: registeredDeviceId ?? this.registeredDeviceId,
+      cachedDeviceId: cachedDeviceId ?? this.cachedDeviceId,
     );
   }
 }
@@ -84,7 +92,8 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
   final PlantNannyApi _api;
   final MqttConfig _mqttConfig;
 
-  DeviceSetupNotifier(this._bluetoothService, this._api, this._mqttConfig) : super(DeviceSetupModel()) {
+  DeviceSetupNotifier(this._bluetoothService, this._api, this._mqttConfig)
+    : super(DeviceSetupModel()) {
     _startScan();
   }
 
@@ -93,7 +102,7 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
     try {
       state = state.copyWith(state: DeviceSetupState.scanning);
       final devices = await _bluetoothService.findNearEndpoints();
-      
+
       if (devices.isEmpty) {
         state = state.copyWith(
           state: DeviceSetupState.error,
@@ -153,10 +162,7 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
   Future<void> submitPin(String pin) async {
     try {
       _log('submitPin: Submitting PIN...');
-      state = state.copyWith(
-        pin: pin,
-        state: DeviceSetupState.connecting,
-      );
+      state = state.copyWith(pin: pin, state: DeviceSetupState.connecting);
 
       final endpoint = state.selectedDevice;
       if (endpoint == null || endpoint is! RealBluetoothEndpoint) {
@@ -187,12 +193,22 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       _log('submitPin: Response: $response');
 
       if (response == 'PIN_OK') {
-        // PIN verified, fetch WiFi networks
-        final networks = await endpoint.getAvailableWifiNetworks();
+        // PIN verified - cache device ID NOW before BLE might disconnect
+        String? deviceId;
+        try {
+          deviceId = await endpoint.getDeviceId();
+          _log('submitPin: Cached device ID = $deviceId');
+        } catch (e) {
+          _log('submitPin: Failed to get device ID: $e');
+        }
         
+        // Fetch WiFi networks
+        final networks = await endpoint.getAvailableWifiNetworks();
+
         state = state.copyWith(
           state: DeviceSetupState.selectWifi,
           wifiNetworks: networks,
+          cachedDeviceId: deviceId,
         );
       } else if (response == 'PIN_INVALID') {
         state = state.copyWith(
@@ -215,10 +231,7 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 
   /// Sélectionne un réseau WiFi
   void selectWifi(String ssid) {
-    state = state.copyWith(
-      ssid: ssid,
-      state: DeviceSetupState.enterWifiPass,
-    );
+    state = state.copyWith(ssid: ssid, state: DeviceSetupState.enterWifiPass);
   }
 
   /// Envoie les informations WiFi
@@ -263,10 +276,10 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 
       // Send WiFi credentials to ESP32
       await endpoint.sendWifiCredentials(ssid, password);
-      
+
       // Wait for ESP32 to try connecting
       state = state.copyWith(state: DeviceSetupState.waitingWifi);
-      
+
       // Wait for WiFi connection result from ESP32 (with polling fallback)
       final response = await endpoint.waitForWifiResult(
         timeout: const Duration(seconds: 45),
@@ -318,40 +331,76 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       }
 
       // Get IP address from ESP32
-      final ipAddress = await endpoint.waitForIpAddress(timeout: const Duration(seconds: 15));
+      final ipAddress = await endpoint.waitForIpAddress(
+        timeout: const Duration(seconds: 15),
+      );
+
+      // Get device ID - first try cached value (BLE might be disconnected now)
+      String? deviceId = state.cachedDeviceId;
       
-      // Get device ID (used as pairing code)
-      final deviceId = await endpoint.getDeviceId();
-      
-      if (deviceId == null) {
-        state = state.copyWith(state: DeviceSetupState.success);
-        return;
+      // If not cached, try to read from BLE (might work if still connected)
+      if (deviceId == null || deviceId.isEmpty) {
+        _log('No cached device ID, trying BLE...');
+        deviceId = await endpoint.getDeviceId();
       }
+
+      if (deviceId == null || deviceId.isEmpty) {
+        _log('ERROR: ESP32 did not provide device ID');
+        throw Exception('Device ID not available from ESP32');
+      }
+      _log('Got device UUID: $deviceId');
 
       // Register device with server
+      String registeredId = deviceId;  // Default to UUID from ESP32
       try {
-        final registerRequest = RegisterDeviceRequest((b) => b
-          ..pairingCode = deviceId
-          ..name = endpoint.name ?? 'PlantNanny Device'
-          ..ipAddress = ipAddress
+        final registerRequest = RegisterDeviceRequest(
+          (b) => b
+            ..pairingCode = deviceId
+            ..name = endpoint.name ?? 'PlantNanny Device'
+            ..ipAddress = ipAddress,
         );
 
-        final response = await _api.getDevicesApi().handlersV1DevicesRegisterPost(
-          registerDeviceRequest: registerRequest,
-        );
+        final response = await _api
+            .getDevicesApi()
+            .handlersV1DevicesRegisterPost(
+              registerDeviceRequest: registerRequest,
+            );
 
-        // Send server-assigned device ID back to ESP32
+        // Use server-assigned device ID if available
         final serverDeviceId = response.data?.deviceId;
         if (serverDeviceId != null) {
+          registeredId = serverDeviceId;
           await endpoint.sendServerId(serverDeviceId);
         }
-      } catch (_) {
-        // Device may already be registered, continue anyway
+      } catch (e) {
+        // Device may already be registered, use the UUID from ESP32
+        _log('Registration failed, using ESP32 UUID: $e');
       }
 
-      state = state.copyWith(state: DeviceSetupState.success);
-    } catch (_) {
-      state = state.copyWith(state: DeviceSetupState.success);
+      state = state.copyWith(
+        state: DeviceSetupState.success,
+        registeredDeviceId: registeredId,
+      );
+    } catch (e) {
+      _log('Setup failed: $e');
+      // Use cached device ID if available (BLE likely disconnected)
+      String? fallbackId = state.cachedDeviceId;
+      
+      // If no cached ID, try BLE one more time
+      if (fallbackId == null || fallbackId.isEmpty) {
+        final endpoint = state.selectedDevice;
+        if (endpoint != null && endpoint is RealBluetoothEndpoint) {
+          try {
+            fallbackId = await endpoint.getDeviceId();
+          } catch (_) {}
+        }
+      }
+      
+      state = state.copyWith(
+        state: DeviceSetupState.success,
+        registeredDeviceId: fallbackId,
+        errorMessage: fallbackId == null ? 'Could not get device ID from ESP32' : null,
+      );
     }
   }
 
@@ -373,9 +422,10 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 }
 
 /// Provider pour le notifier
-final deviceSetupProvider = StateNotifierProvider<DeviceSetupNotifier, DeviceSetupModel>((ref) {
-  final bluetoothService = ref.watch(bluetoothServiceProvider);
-  final api = ref.watch(apiClientProvider);
-  final mqttConfig = ref.watch(mqttConfigProvider);
-  return DeviceSetupNotifier(bluetoothService, api, mqttConfig);
-});
+final deviceSetupProvider =
+    StateNotifierProvider<DeviceSetupNotifier, DeviceSetupModel>((ref) {
+      final bluetoothService = ref.watch(bluetoothServiceProvider);
+      final api = ref.watch(apiClientProvider);
+      final mqttConfig = ref.watch(mqttConfigProvider);
+      return DeviceSetupNotifier(bluetoothService, api, mqttConfig);
+    });

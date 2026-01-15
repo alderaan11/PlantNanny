@@ -1,0 +1,48 @@
+# Docker Compose for PlantNanny development and testing
+# 
+# Start PostgreSQL for development:
+#   docker-compose up -d postgres
+#
+# Run tests:
+#   docker-compose up -d postgres-test
+#   cd server && source venv/bin/activate && pytest tests/ -v
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: plantnanny-db
+    environment:
+      POSTGRES_USER: plantnanny
+      POSTGRES_PASSWORD: plantnanny_secret
+      POSTGRES_DB: plantnanny
+    ports:
+      - "5432:5432"
+    volumes:
+      - plantnanny_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plantnanny"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: plantnanny-db-test
+    environment:
+      POSTGRES_USER: plantnanny
+      POSTGRES_PASSWORD: plantnanny_secret
+      POSTGRES_DB: plantnanny_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data  # Use tmpfs for faster tests
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plantnanny"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
+
+volumes:
+  plantnanny_data:

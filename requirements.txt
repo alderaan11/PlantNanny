@@ -3,3 +3,12 @@ uvicorn
 flask
 pyyaml
 aiomqtt
+sqlalchemy[asyncio]
+asyncpg
+greenlet
+python-dotenv
+
+# Testing
+pytest
+pytest-asyncio
+aiosqlite

@@ -5,46 +5,24 @@ import 'features/devices/devices_page.dart';
 import 'features/devices/add_plant_page.dart';
 import 'features/devices/add_device_bluetooth_page.dart';
 import 'features/history/history_page.dart';
-import 'data/repositories/devices_repository_fake.dart';
-import 'data/repositories/devices_repository.dart';
 
 import 'features/auth/login_page.dart';
 import 'features/auth/signup_page.dart';
 import 'features/auth/forgot_password_page.dart';
 import 'features/auth/main_page.dart';
 import 'data/auth/auth_notifier.dart';
-import 'data/repositories/readings_repository.dart';
-import 'data/repositories/readings_repository_fake.dart';
-import 'data/repositories/commands_repository.dart';
-import 'data/repositories/commands_repository_base.dart';
-import 'data/repositories/commands_repository_fake.dart';
 import 'core/server_config_provider.dart';
-
-const bool useFakeReadings = false;
-const bool useFakeDevices = false;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  
-  runApp(ProviderScope(
-    overrides: [
-      sharedPreferencesProvider.overrideWithValue(prefs),
-      if (useFakeReadings)
-        readingsRepositoryProvider.overrideWithProvider(
-          Provider<ReadingsRepository>((_) => FakeReadingsRepository()),
-        ),
-      if (useFakeDevices)
-        devicesRepositoryProvider.overrideWithProvider(
-          Provider((_) => FakeDevicesRepository()),
-        ),
-      if (useFakeDevices)
-        commandsRepositoryProvider.overrideWithProvider(
-          Provider<CommandsRepositoryBase>((_) => FakeCommandsRepository()),
-        ),
-    ],
-    child: const PlantNannyApp(),
-  ));
+
+  runApp(
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const PlantNannyApp(),
+    ),
+  );
 }
 
 class PlantNannyApp extends ConsumerWidget {
@@ -73,7 +51,9 @@ class PlantNannyApp extends ConsumerWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF606C38),
           foregroundColor: const Color(0xFFEDEDE9),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           elevation: 2,
@@ -94,7 +74,10 @@ class PlantNannyApp extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF606C38), width: 2.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 18,
+          horizontal: 20,
+        ),
         labelStyle: const TextStyle(fontSize: 16, color: Color(0xFF283618)),
       ),
       textButtonTheme: TextButtonThemeData(

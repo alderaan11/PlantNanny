@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import '../../core/server_config_provider.dart';
+import '../devices/devices_controller.dart';
+import '../dashboard/dashboard_controller.dart';
+import '../dashboard/dashboard_providers.dart';
 import 'mqtt_config_page.dart';
 
 /// Connection status enum
@@ -58,6 +61,8 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
           if (response.statusCode == 200) {
             _connectionStatus = ConnectionStatus.connected;
             _connectionError = null;
+            // Invalidate providers to refresh data from the new/working server
+            _invalidateServerDependentProviders();
           } else {
             _connectionStatus = ConnectionStatus.failed;
             _connectionError = 'Server returned status ${response.statusCode}';
@@ -72,6 +77,17 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
         });
       }
     }
+  }
+
+  /// Invalidate all providers that depend on the server connection
+  /// This forces them to refetch data when the connection is restored
+  void _invalidateServerDependentProviders() {
+    // Invalidate devices controller to refresh the device list
+    ref.invalidate(devicesControllerProvider);
+    // Invalidate all dashboard providers (they're family providers, so invalidate the whole family)
+    ref.invalidate(dashboardProvider);
+    // Invalidate aggregated dashboard data provider
+    ref.invalidate(dashboardAggregatedProvider);
   }
 
   Future<void> _saveUrl() async {

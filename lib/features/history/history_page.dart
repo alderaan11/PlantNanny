@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../dashboard/dashboard_providers.dart';
@@ -12,8 +13,64 @@ class HistoryPage extends ConsumerStatefulWidget {
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends ConsumerState<HistoryPage> {
+class _HistoryPageState extends ConsumerState<HistoryPage> with WidgetsBindingObserver {
   TimeRange _selectedRange = TimeRange.day;
+  Timer? _refreshTimer;
+  DateTime _lastRefresh = DateTime.now();
+  bool _isVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isVisible = true;
+      _startTimer();
+      _refreshData(); // Refresh immediately when coming back
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _isVisible = false;
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
+  }
+
+  void _startTimer() {
+    _refreshTimer?.cancel();
+    // Auto-refresh every 1 second while visible
+    _refreshTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_isVisible) _refreshData();
+    });
+  }
+
+  void _refreshData() {
+    if (!mounted) return;
+    final seriesReq = DashboardRequest(deviceId: widget.deviceId, range: _selectedRange);
+    ref.invalidate(dashboardAggregatedProvider(seriesReq));
+    // Force rebuild by updating state
+    setState(() {
+      _lastRefresh = DateTime.now();
+    });
+  }
+
+  String _formatRefreshTime() {
+    final now = DateTime.now();
+    final diff = now.difference(_lastRefresh);
+    if (diff.inSeconds < 5) return 'à l\'instant';
+    if (diff.inSeconds < 60) return 'il y a ${diff.inSeconds}s';
+    return 'il y a ${diff.inMinutes}min';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +80,23 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Toutes les données'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Toutes les données'),
+            Text(
+              'Actualisé ${_formatRefreshTime()}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Rafraîchir',
+            onPressed: _refreshData,
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -60,18 +133,27 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 data: (points) {
                   if (points.isEmpty) return const Center(child: Text('Aucune donnée pour cette période'));
                   final temps = points.map((p) => p['temperature'] as double).toList();
+                  // Reverse points for list view (newest first)
+                  final reversedPoints = points.reversed.toList();
                   return Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
                       child: Column(children: [
                         SizedBox(height: 180, child: _SimpleLineChart(values: temps)),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
+                        // Show last update time
+                        if (reversedPoints.isNotEmpty)
+                          Text(
+                            'Dernière donnée: ${(reversedPoints.first['ts'] as DateTime).toLocal()}',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        const SizedBox(height: 8),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: points.length,
+                            itemCount: reversedPoints.length,
                             itemBuilder: (_, i) {
-                              final p = points[i];
+                              final p = reversedPoints[i];
                               final ts = p['ts'] as DateTime;
                               return ListTile(
                                 title: Text('${p['temperature']} °C • ${p['humidity']} % • ${p['luminosity']} %'),

@@ -2,10 +2,10 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from storage import devices_store, readings_store, generate_id
+import database as db
 
 
-def post(device_id: str, body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
+async def post(device_id: str, body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
     """Ingest a sensor reading (ESP32)."""
     device_info = token_info or user or {}
     auth_device_id = device_info.get("device_id")
@@ -13,29 +13,28 @@ def post(device_id: str, body: dict, user: dict = None, token_info: dict = None)
     if auth_device_id != device_id:
         return {"error": "Device key doesn't match device ID"}, 401
     
-    if device_id in devices_store:
-        devices_store[device_id]["lastSeen"] = datetime.now(timezone.utc).isoformat()
+    # Update device last_seen is done automatically in create_reading
+    ts_str = body.get("ts")
+    ts = None
+    if ts_str:
+        try:
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        except ValueError:
+            ts = datetime.now(timezone.utc)
     
-    ts = body.get("ts") or datetime.now(timezone.utc).isoformat()
-    reading_id = generate_id()
+    reading = await db.create_reading(
+        device_id=device_id,
+        temperature_c=body.get("temperatureC"),
+        humidity_pct=body.get("humidityPct"),
+        luminosity_pct=body.get("luminosityPct"),
+        soil_moisture_pct=body.get("soilMoisturePct"),
+        ts=ts,
+    )
     
-    reading = {
-        "id": reading_id,
-        "deviceId": device_id,
-        "ts": ts,
-        "temperatureC": body["temperatureC"],
-        "humidityPct": body["humidityPct"],
-        "luminosityPct": body["luminosityPct"],
-    }
-    
-    if device_id not in readings_store:
-        readings_store[device_id] = []
-    readings_store[device_id].append(reading)
-    
-    return reading, 201
+    return reading.to_dict(), 201
 
 
-def get(
+async def get(
     device_id: str,
     from_: Optional[str] = None,
     to: Optional[str] = None,
@@ -48,55 +47,56 @@ def get(
     info = token_info or user or {}
     user_uid = info.get("uid", "")
     
-    device = devices_store.get(device_id)
-    if not device or device.get("ownerUid") != user_uid:
+    device = await db.get_device_for_owner(device_id, user_uid)
+    if not device:
         return {"error": "Device not found"}, 404
     
-    device_readings = readings_store.get(device_id, [])
+    from_dt = None
+    to_dt = None
     
-    filtered = device_readings
     if from_:
         try:
             from_dt = datetime.fromisoformat(from_.replace("Z", "+00:00"))
-            filtered = [r for r in filtered if datetime.fromisoformat(r["ts"].replace("Z", "+00:00")) >= from_dt]
         except ValueError:
             pass
     
     if to:
         try:
             to_dt = datetime.fromisoformat(to.replace("Z", "+00:00"))
-            filtered = [r for r in filtered if datetime.fromisoformat(r["ts"].replace("Z", "+00:00")) < to_dt]
         except ValueError:
             pass
     
-    reverse = order == "desc"
-    filtered = sorted(filtered, key=lambda r: r["ts"], reverse=reverse)
-    filtered = filtered[:limit]
+    readings = await db.get_readings(
+        device_id=device_id,
+        from_dt=from_dt,
+        to_dt=to_dt,
+        limit=limit,
+        order=order,
+    )
     
     return {
-        "count": len(filtered),
-        "items": filtered,
+        "count": len(readings),
+        "items": [r.to_dict() for r in readings],
     }, 200
 
 
-def last_get(device_id: str, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
+async def last_get(device_id: str, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
     """Get last reading."""
     info = token_info or user or {}
     user_uid = info.get("uid", "")
     
-    device = devices_store.get(device_id)
-    if not device or device.get("ownerUid") != user_uid:
+    device = await db.get_device_for_owner(device_id, user_uid)
+    if not device:
         return {"error": "Device not found"}, 404
     
-    device_readings = readings_store.get(device_id, [])
-    if not device_readings:
+    reading = await db.get_last_reading(device_id)
+    if not reading:
         return {"error": "No readings available"}, 404
     
-    sorted_readings = sorted(device_readings, key=lambda r: r["ts"], reverse=True)
-    return sorted_readings[0], 200
+    return reading.to_dict(), 200
 
 
-def aggregate_get(
+async def aggregate_get(
     device_id: str,
     from_: str,
     to: str,
@@ -108,18 +108,9 @@ def aggregate_get(
     info = token_info or user or {}
     user_uid = info.get("uid", "")
     
-    device = devices_store.get(device_id)
-    if not device or device.get("ownerUid") != user_uid:
+    device = await db.get_device_for_owner(device_id, user_uid)
+    if not device:
         return {"error": "Device not found"}, 404
-    
-    bucket_seconds = {
-        "1m": 60,
-        "5m": 300,
-        "15m": 900,
-        "1h": 3600,
-        "6h": 21600,
-        "1d": 86400,
-    }.get(bucket, 300)
     
     try:
         from_dt = datetime.fromisoformat(from_.replace("Z", "+00:00"))
@@ -127,43 +118,14 @@ def aggregate_get(
     except ValueError:
         return {"error": "Invalid date format"}, 400
     
-    device_readings = readings_store.get(device_id, [])
-    
-    filtered = []
-    for r in device_readings:
-        try:
-            r_dt = datetime.fromisoformat(r["ts"].replace("Z", "+00:00"))
-            if from_dt <= r_dt < to_dt:
-                filtered.append((r_dt, r))
-        except ValueError:
-            continue
-    
-    buckets_data: dict[int, list] = {}
-    for r_dt, r in filtered:
-        bucket_start = int(r_dt.timestamp()) // bucket_seconds * bucket_seconds
-        if bucket_start not in buckets_data:
-            buckets_data[bucket_start] = []
-        buckets_data[bucket_start].append(r)
-    
-    items = []
-    for bucket_start in sorted(buckets_data.keys()):
-        readings_in_bucket = buckets_data[bucket_start]
-        temps = [r["temperatureC"] for r in readings_in_bucket]
-        humidity = [r["humidityPct"] for r in readings_in_bucket]
-        luminosity = [r["luminosityPct"] for r in readings_in_bucket]
-        
-        items.append({
-            "ts": datetime.fromtimestamp(bucket_start, tz=timezone.utc).isoformat(),
-            "temperatureC_avg": sum(temps) / len(temps),
-            "temperatureC_min": min(temps),
-            "temperatureC_max": max(temps),
-            "humidityPct_avg": sum(humidity) / len(humidity),
-            "luminosityPct_avg": sum(luminosity) / len(luminosity),
-        })
+    # For now, return simple aggregates
+    # TODO: Implement proper bucketed aggregation in database layer
+    stats = await db.get_readings_aggregated(device_id, from_dt, to_dt)
     
     return {
         "bucket": bucket,
         "from": from_,
         "to": to,
-        "items": items,
+        "stats": stats,
+        "items": [],  # TODO: Implement time-bucketed data
     }, 200

@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 from starlette.responses import StreamingResponse
 
-from storage import devices_store, readings_store
+import database as db
 from mqtt_handler import get_mqtt_handler, force_device_reading
 
 
@@ -13,15 +13,18 @@ from mqtt_handler import get_mqtt_handler, force_device_reading
 MAX_READING_AGE_SECONDS = 120  # 2 minutes
 
 
-def _reading_is_stale(reading: dict) -> bool:
+def _reading_is_stale(reading) -> bool:
     """Check if a reading is too old and needs to be refreshed."""
-    ts = reading.get("ts")
+    ts = reading.ts if hasattr(reading, 'ts') else reading.get("ts")
     if not ts:
         return True
     
     try:
+        # Handle datetime objects
+        if isinstance(ts, datetime):
+            reading_time = ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
         # Handle both ISO format and Unix timestamp
-        if isinstance(ts, (int, float)):
+        elif isinstance(ts, (int, float)):
             reading_time = datetime.fromtimestamp(ts, tz=timezone.utc)
         else:
             reading_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
@@ -46,8 +49,8 @@ async def get(device_id: str, user: dict = None, token_info: dict = None):
     info = token_info or user or {}
     user_uid = info.get("uid", "")
     
-    device = devices_store.get(device_id)
-    if not device or device.get("ownerUid") != user_uid:
+    device = await db.get_device_for_owner(device_id, user_uid)
+    if not device:
         return {"error": "Device not found"}, 404
     
     mqtt_handler = get_mqtt_handler()
@@ -57,17 +60,13 @@ async def get(device_id: str, user: dict = None, token_info: dict = None):
         # Send connected event
         yield f"event: connected\ndata: {json.dumps({'deviceId': device_id})}\n\n"
         
-        # Check if we have a recent reading
-        device_readings = readings_store.get(device_id, [])
-        last_reading = None
+        # Check if we have a recent reading from DB
+        last_reading = await db.get_last_reading(device_id)
         need_fresh_reading = True
         
-        if device_readings:
-            sorted_readings = sorted(device_readings, key=lambda r: r.get("ts", ""), reverse=True)
-            last_reading = sorted_readings[0]
-            
+        if last_reading:
             # Send the last reading immediately
-            yield f"event: reading\ndata: {json.dumps(last_reading)}\n\n"
+            yield f"event: reading\ndata: {json.dumps(last_reading.to_dict())}\n\n"
             
             # Check if it's fresh enough
             need_fresh_reading = _reading_is_stale(last_reading)

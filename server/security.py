@@ -1,8 +1,9 @@
 """Security handlers for authentication."""
 import logging
+import asyncio
 from connexion.exceptions import OAuthProblem
 
-from storage import device_keys
+import database as db
 
 # Logger for security events (do not log secrets in full)
 logger = logging.getLogger("plant_nanny.security")
@@ -65,22 +66,23 @@ def firebase_jwt_info_func(token: str) -> dict:
         raise OAuthProblem("Invalid token")
 
 
-def device_key_info_func(api_key: str, required_scopes=None) -> dict:
+async def device_key_info_func(api_key: str, required_scopes=None) -> dict:
     """
     Validate device API key and return device info.
     
     The device key is passed in the x-device-key header.
     """
-    if api_key not in device_keys:
+    device = await db.get_device_by_api_key(api_key)
+    
+    if not device:
         masked = (api_key[:6] + "...") if api_key else "<empty>"
         logger.warning(f"Invalid device key attempt: {masked}")
         raise OAuthProblem("Invalid device key")
 
-    device_id = device_keys[api_key]
     device_info = {
-        "device_id": device_id,
+        "device_id": device.device_id,
         # Never log or return raw secrets in real logs/production
     }
 
-    logger.info(f"Device key validated for device {device_id}")
+    logger.info(f"Device key validated for device {device.device_id}")
     return device_info

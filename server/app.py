@@ -24,15 +24,8 @@ except ImportError:
     pass
 
 
-def create_app(seed_data: bool = False) -> connexion.AsyncApp:
-    """Create and configure the Connexion application.
-    
-    Args:
-        seed_data: If True, populate stores with fake development data.
-    """
-    if seed_data:
-        from storage import seed_fake_data
-        seed_fake_data()
+def create_app() -> connexion.AsyncApp:
+    """Create and configure the Connexion application."""
     
     app = connexion.AsyncApp(
         __name__,
@@ -166,12 +159,32 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
     import asyncio
+    import logging
     from mqtt_handler import setup_mqtt_handler, shutdown_mqtt_handler
+    import database as db
     
     args = parse_args()
-    app = create_app(seed_data=args.seed)
+    app = create_app()
+    
+    logger = logging.getLogger("plant_nanny.server")
     
     async def main():
+        # Initialize database connection
+        try:
+            await db.init_db()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            raise
+        
+        # Seed database if requested
+        if args.seed:
+            try:
+                await db.seed_fake_data()
+                logger.info("Database seeded with fake data")
+            except Exception as e:
+                logger.warning(f"Failed to seed database (may already have data): {e}")
+        
         # Setup MQTT handler if not disabled
         if not args.no_mqtt:
             try:
@@ -182,8 +195,7 @@ if __name__ == "__main__":
                     password=args.mqtt_password,
                 )
             except Exception as e:
-                import logging
-                logging.getLogger("plant_nanny.mqtt").warning(
+                logger.warning(
                     f"Failed to start MQTT handler: {e}. Continuing without MQTT."
                 )
         
@@ -195,5 +207,7 @@ if __name__ == "__main__":
             await server.serve()
         finally:
             await shutdown_mqtt_handler()
+            await db.close_db()
+            logger.info("Database connection closed")
     
     asyncio.run(main())

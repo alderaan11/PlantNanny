@@ -71,6 +71,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     bool isOutdoor = meta.isOutdoor;
     String? selectedPlantType = meta.plantType;
 
+    // Liste des types de plantes
     final List<String> plantTypes = [
       'Tomate',
       'Basilic',
@@ -109,6 +110,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 12),
+
+                // Champ pour le nom du capteur
                 TextFormField(
                   controller: nameController,
                   decoration: const InputDecoration(
@@ -118,6 +121,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Autocomplete pour le type de plante
                 Autocomplete<String>(
                   initialValue: TextEditingValue(text: meta.plantType ?? ''),
                   optionsBuilder: (TextEditingValue textEditingValue) {
@@ -276,6 +281,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
+                      // Scores affichés de manière plus visible
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
@@ -300,6 +306,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                      // Boutons d'action
                       Row(
                         children: [
                           Expanded(
@@ -310,7 +317,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                       .read(commandsRepositoryProvider)
                                       .forceReading(widget.deviceId);
 
+                                  // Rafraîchir les données après quelques secondes
                                   Future.delayed(const Duration(seconds: 3), () {
+                                    // Invalider les providers pour forcer le rechargement
                                     ref.invalidate(
                                       dashboardProvider(widget.deviceId),
                                     );
@@ -354,6 +363,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Affichage des commentaires
               if (meta?.comments != null && meta!.comments!.isNotEmpty)
                 Card(
                   color: Colors.amber.shade50,
@@ -386,6 +397,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 ),
               if (meta?.comments != null && meta!.comments!.isNotEmpty)
                 const SizedBox(height: 16),
+
+              // Bouton pour accéder à toutes les données
               Card(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 shape: RoundedRectangleBorder(

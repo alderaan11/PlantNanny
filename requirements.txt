@@ -2,17 +2,17 @@ connexion[flask,uvicorn,swagger-ui]
 uvicorn
 flask
 pyyaml
-<<<<<<< Updated upstream
 aiomqtt
+paho-mqtt
 sqlalchemy[asyncio]
 asyncpg
 greenlet
 python-dotenv
+firebase-admin
+PyJWT
+cryptography
 
 # Testing
 pytest
 pytest-asyncio
 aiosqlite
-=======
-paho-mqtt
->>>>>>> Stashed changes

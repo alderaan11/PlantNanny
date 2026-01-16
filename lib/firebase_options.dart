@@ -29,10 +29,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.windows:
         return windows;
       case TargetPlatform.linux:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return linux;
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -63,7 +60,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '141691904005',
     projectId: 'plantnanny-90165',
     storageBucket: 'plantnanny-90165.firebasestorage.app',
-    iosClientId: '141691904005-sv8mmhgdo85ce2o97f51735rfes27e3g.apps.googleusercontent.com',
+    iosClientId:
+        '141691904005-sv8mmhgdo85ce2o97f51735rfes27e3g.apps.googleusercontent.com',
     iosBundleId: 'com.example.plantNanny',
   );
 
@@ -73,7 +71,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '141691904005',
     projectId: 'plantnanny-90165',
     storageBucket: 'plantnanny-90165.firebasestorage.app',
-    iosClientId: '141691904005-sv8mmhgdo85ce2o97f51735rfes27e3g.apps.googleusercontent.com',
+    iosClientId:
+        '141691904005-sv8mmhgdo85ce2o97f51735rfes27e3g.apps.googleusercontent.com',
     iosBundleId: 'com.example.plantNanny',
   );
 
@@ -86,4 +85,12 @@ class DefaultFirebaseOptions {
     storageBucket: 'plantnanny-90165.firebasestorage.app',
   );
 
+  static const FirebaseOptions linux = FirebaseOptions(
+    apiKey: 'AIzaSyCNrkWCn7uXlCt1SHR7NnZ_CAdq1KWOmKQ',
+    appId: '1:141691904005:web:28fcb4564bf5b7bdf43c6c',
+    messagingSenderId: '141691904005',
+    projectId: 'plantnanny-90165',
+    authDomain: 'plantnanny-90165.firebaseapp.com',
+    storageBucket: 'plantnanny-90165.firebasestorage.app',
+  );
 }

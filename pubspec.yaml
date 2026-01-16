@@ -46,7 +46,9 @@ dependencies:
   flutter_blue_plus: ^2.0.0
   shared_preferences: ^2.3.0
   http: ^1.6.0
-  firebase_core: 2.32.0  # Pinned to 2.x for Xcode 15 / Swift 5 compatibility
+  firebase_core: ^2.32.0  # Pinned to 2.x for Xcode 15 / Swift 5 compatibility
+  firebase_auth: ^4.16.0  # Firebase auth for mobile/web
+  firebase_dart: ^1.5.3  # Pure Dart Firebase for Linux desktop
 
 
 dev_dependencies:

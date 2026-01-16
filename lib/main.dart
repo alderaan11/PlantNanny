@@ -11,17 +11,40 @@ import 'features/auth/signup_page.dart';
 import 'features/auth/forgot_password_page.dart';
 import 'features/auth/main_page.dart';
 import 'data/auth/auth_notifier.dart';
+import 'data/auth/firebase_auth_service.dart';
 import 'core/server_config_provider.dart';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_dart/firebase_dart.dart' as fb_dart;
 import 'firebase_options.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  if (defaultTargetPlatform == TargetPlatform.linux) {
+    // Use pure Dart Firebase for Linux
+    fb_dart.FirebaseDart.setup();
+    final app = await fb_dart.Firebase.initializeApp(
+      options: fb_dart.FirebaseOptions(
+        apiKey: DefaultFirebaseOptions.linux.apiKey,
+        appId: DefaultFirebaseOptions.linux.appId,
+        messagingSenderId: DefaultFirebaseOptions.linux.messagingSenderId,
+        projectId: DefaultFirebaseOptions.linux.projectId,
+        authDomain: DefaultFirebaseOptions.linux.authDomain,
+        storageBucket: DefaultFirebaseOptions.linux.storageBucket,
+      ),
+    );
+    AuthServiceProvider.initialize(FirebaseDartAuthService(app));
+  } else {
+    // Use standard Firebase for other platforms
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    AuthServiceProvider.initialize(FirebaseAuthService());
+  }
 
   runApp(
     ProviderScope(

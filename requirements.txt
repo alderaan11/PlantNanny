@@ -2,6 +2,7 @@ connexion[flask,uvicorn,swagger-ui]
 uvicorn
 flask
 pyyaml
+<<<<<<< Updated upstream
 aiomqtt
 sqlalchemy[asyncio]
 asyncpg
@@ -12,3 +13,6 @@ python-dotenv
 pytest
 pytest-asyncio
 aiosqlite
+=======
+paho-mqtt
+>>>>>>> Stashed changes

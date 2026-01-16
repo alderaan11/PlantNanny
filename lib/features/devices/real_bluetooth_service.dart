@@ -28,10 +28,16 @@ class RealBluetoothService extends core.BluetoothService {
     final List<core.BluetoothEndpoint> endpoints = [];
     
     if (await fbp.FlutterBluePlus.isSupported == false) {
+      _log('Bluetooth not supported');
       throw Exception('Bluetooth not supported on this device');
     }
 
-    if (await fbp.FlutterBluePlus.adapterState.first != fbp.BluetoothAdapterState.on) {
+    _log('Checking adapter state...');
+    final adapterState = await fbp.FlutterBluePlus.adapterState.first;
+    _log('Adapter state: $adapterState');
+    
+    if (adapterState != fbp.BluetoothAdapterState.on) {
+      _log('Waiting for adapter to turn on...');
       await fbp.FlutterBluePlus.adapterState
           .where((state) => state == fbp.BluetoothAdapterState.on)
           .first
@@ -40,32 +46,92 @@ class RealBluetoothService extends core.BluetoothService {
       });
     }
 
-    await fbp.FlutterBluePlus.startScan(
-      timeout: const Duration(seconds: 10),
-      withServices: [fbp.Guid(configServiceUuid)],
-    );
+    // Stop any existing scan first
+    if (fbp.FlutterBluePlus.isScanningNow) {
+      _log('Stopping existing scan...');
+      await fbp.FlutterBluePlus.stopScan();
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
 
-    final subscription = fbp.FlutterBluePlus.scanResults.listen((results) {
+    _log('Starting BLE scan...');
+    
+    // Use onScanResults instead of scanResults for better Linux compatibility
+    final completer = Completer<void>();
+    
+    final subscription = fbp.FlutterBluePlus.onScanResults.listen((results) {
+      _log('onScanResults: ${results.length} devices');
       for (final result in results) {
         final name = result.device.platformName;
-        if (name.toLowerCase().contains('plantnanny') ||
-            result.advertisementData.serviceUuids.any(
-              (uuid) => uuid.toString().toLowerCase() == configServiceUuid.toLowerCase(),
-            )) {
+        final localName = result.advertisementData.advName;
+        final effectiveName = name.isNotEmpty ? name : localName;
+        
+        _log('  Device: ${result.device.remoteId} name="$effectiveName" rssi=${result.rssi}');
+        
+        final matchesByName = effectiveName.toLowerCase().contains('plantnanny');
+        final matchesByService = result.advertisementData.serviceUuids.any(
+          (uuid) => uuid.toString().toLowerCase() == configServiceUuid.toLowerCase(),
+        );
+        
+        if (matchesByName || matchesByService) {
+          _log('  -> MATCH! Adding to endpoints');
           if (endpoints.every((e) => e.id != result.device.remoteId.str)) {
             endpoints.add(RealBluetoothEndpoint(
               device: result.device,
+              deviceName: effectiveName.isNotEmpty ? effectiveName : 'PlantNanny Device',
+            ));
+          }
+        }
+      }
+    }, onError: (e) {
+      _log('Scan error: $e');
+    });
+    
+    // Also check bonded/system devices (already known to BlueZ)
+    _log('Checking bonded devices...');
+    try {
+      final bondedDevices = await fbp.FlutterBluePlus.bondedDevices;
+      _log('Bonded devices: ${bondedDevices.length}');
+      for (final device in bondedDevices) {
+        final name = device.platformName;
+        _log('  Bonded device: ${device.remoteId} name="$name"');
+        if (name.toLowerCase().contains('plantnanny')) {
+          _log('  -> MATCH in bonded devices!');
+          if (endpoints.every((e) => e.id != device.remoteId.str)) {
+            endpoints.add(RealBluetoothEndpoint(
+              device: device,
               deviceName: name.isNotEmpty ? name : 'PlantNanny Device',
             ));
           }
         }
       }
-    });
+    } catch (e) {
+      _log('Error getting bonded devices: $e');
+    }
+    
+    // Start scan
+    try {
+      await fbp.FlutterBluePlus.startScan(
+        timeout: const Duration(seconds: 10),
+        continuousUpdates: true,
+      );
+      _log('Scan started, waiting for results...');
+    } catch (e) {
+      _log('Error starting scan: $e');
+      await subscription.cancel();
+      rethrow;
+    }
 
+    // Wait for scan to complete
     await Future.delayed(const Duration(seconds: 10));
-    await fbp.FlutterBluePlus.stopScan();
+    
+    try {
+      await fbp.FlutterBluePlus.stopScan();
+    } catch (e) {
+      _log('Error stopping scan: $e');
+    }
     await subscription.cancel();
 
+    _log('Scan complete. Found ${endpoints.length} devices.');
     return endpoints;
   }
 

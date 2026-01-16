@@ -4,6 +4,7 @@ import logging
 import asyncio
 
 import database as db
+from mqtt_handler import get_mqtt_handler
 
 logger = logging.getLogger("plant_nanny.commands")
 if not logger.handlers:

@@ -54,8 +54,6 @@ def create_app() -> connexion.AsyncApp:
     import logging
     from starlette.responses import JSONResponse
     from starlette.exceptions import HTTPException as StarletteHTTPException
-    from starlette.middleware.base import BaseHTTPMiddleware
-    from starlette.requests import Request
 
     logger = logging.getLogger("plant_nanny.server")
     if not logger.handlers:
@@ -65,16 +63,33 @@ def create_app() -> connexion.AsyncApp:
         logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
-    # Simple request logging middleware
-    class RequestLoggingMiddleware(BaseHTTPMiddleware):
-        async def dispatch(self, request: Request, call_next):
-            logger.info(f"--> {request.method} {request.url.path}")
+    # Simple request logging middleware using pure ASGI (avoids BaseHTTPMiddleware issues)
+    class RequestLoggingMiddleware:
+        def __init__(self, app):
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] != "http":
+                await self.app(scope, receive, send)
+                return
+            
+            path = scope.get("path", "")
+            method = scope.get("method", "")
+            logger.info(f"--> {method} {path}")
+            
+            status_code = None
+            
+            async def send_wrapper(message):
+                nonlocal status_code
+                if message["type"] == "http.response.start":
+                    status_code = message.get("status", 0)
+                await send(message)
+            
             try:
-                response = await call_next(request)
-                logger.info(f"<-- {response.status_code} {request.method} {request.url.path}")
-                return response
+                await self.app(scope, receive, send_wrapper)
+                logger.info(f"<-- {status_code} {method} {path}")
             except Exception as exc:
-                logger.exception(f"Exception while handling {request.method} {request.url.path}: {exc}")
+                logger.exception(f"Exception while handling {method} {path}: {exc}")
                 raise
 
     # Add middleware to the Connexion app (positioned before exception handling)

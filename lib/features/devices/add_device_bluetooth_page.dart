@@ -573,14 +573,15 @@ class _SuccessViewState extends ConsumerState<_SuccessView> {
         final setupState = ref.read(deviceSetupProvider);
         // Use the server-registered device ID
         String? deviceId = setupState.registeredDeviceId;
-        
+
         // If not available, use cached device ID (saved before BLE disconnect)
         if (deviceId == null || deviceId.isEmpty) {
           deviceId = setupState.cachedDeviceId;
         }
-        
+
         // Last resort: try to get from BLE (likely to fail if disconnected)
-        if ((deviceId == null || deviceId.isEmpty) && setupState.selectedDevice != null) {
+        if ((deviceId == null || deviceId.isEmpty) &&
+            setupState.selectedDevice != null) {
           if (setupState.selectedDevice is RealBluetoothEndpoint) {
             final endpoint = setupState.selectedDevice as RealBluetoothEndpoint;
             try {
@@ -590,17 +591,20 @@ class _SuccessViewState extends ConsumerState<_SuccessView> {
             }
           }
         }
-        
+
         // If still no device ID, show error - do NOT use MAC address
         if (deviceId == null || deviceId.isEmpty) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Erreur: ID d\'appareil non disponible')),
+              const SnackBar(
+                content: Text('Erreur: ID d\'appareil non disponible'),
+              ),
             );
           }
           return;
         }
-        
+
+        if (!mounted) return;
         Navigator.of(
           context,
         ).pushReplacementNamed('/devices/configure', arguments: deviceId);

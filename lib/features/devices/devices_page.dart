@@ -5,6 +5,7 @@ import 'package:plant_nanny/features/dashboard/dashboard_page.dart';
 import 'package:plant_nanny/data/providers/device_metadata_provider.dart';
 import 'package:plant_nanny/data/models/device_metadata.dart';
 import 'package:plant_nanny/data/repositories/devices_repository.dart';
+import 'package:plant_nanny/core/widgets/api_error_widget.dart';
 
 class DevicesPage extends ConsumerWidget {
   const DevicesPage({super.key});
@@ -67,7 +68,7 @@ class DevicesPage extends ConsumerWidget {
                   leading: CircleAvatar(
                     backgroundColor: Theme.of(
                       context,
-                    ).colorScheme.primary.withOpacity(0.12),
+                    ).colorScheme.primary.withValues(alpha: .12),
                     child: meta?.plantType != null
                         ? Text(
                             meta!.plantType![0].toUpperCase(),
@@ -121,12 +122,14 @@ class DevicesPage extends ConsumerWidget {
                                 .remove(device.deviceId);
                             // Refresh the devices list to update the UI
                             ref.invalidate(devicesControllerProvider);
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Appareil supprimé'),
                               ),
                             );
                           } catch (e) {
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text('Erreur: ${e.toString()}'),
@@ -156,7 +159,10 @@ class DevicesPage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erreur: $e')),
+        error: (e, _) => ApiErrorWidget(
+          error: e,
+          onRetry: () => ref.invalidate(devicesControllerProvider),
+        ),
       ),
     );
   }

@@ -26,30 +26,39 @@ class HomeScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Bienvenue, $displayName!', style: Theme.of(context).textTheme.headlineMedium),
+            Text(
+              'Bienvenue, $displayName!',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
             const SizedBox(height: 16),
 
             // Aperçu capteurs (jusqu'à 3)
-            Consumer(builder: (context, ref, _) {
-              final devices = ref.watch(devicesControllerProvider);
-              return devices.when(
-                data: (list) {
-                  if (list.isEmpty) return const SizedBox.shrink();
-                  final shown = list.length > 3 ? list.sublist(0, 3) : list;
-                  return Column(
-                    children: shown.map((device) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: DevicePreview(
-                        deviceId: device.deviceId,
-                        name: device.name ?? device.deviceId,
-                      ),
-                    )).toList(),
-                  );
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              );
-            }),
+            Consumer(
+              builder: (context, ref, _) {
+                final devices = ref.watch(devicesControllerProvider);
+                return devices.when(
+                  data: (list) {
+                    if (list.isEmpty) return const SizedBox.shrink();
+                    final shown = list.length > 3 ? list.sublist(0, 3) : list;
+                    return Column(
+                      children: shown
+                          .map(
+                            (device) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: DevicePreview(
+                                deviceId: device.deviceId,
+                                name: device.name ?? device.deviceId,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
+                );
+              },
+            ),
           ],
         ),
       ),

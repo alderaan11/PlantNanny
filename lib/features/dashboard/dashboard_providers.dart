@@ -32,9 +32,10 @@ final dashboardAggregatedProvider = FutureProvider.autoDispose
       DateTime toDate(dynamic ts) {
         if (ts == null) return DateTime.fromMillisecondsSinceEpoch(0);
         if (ts is DateTime) return ts.toUtc();
-        if (ts is String)
+        if (ts is String) {
           return DateTime.tryParse(ts)?.toUtc() ??
               DateTime.fromMillisecondsSinceEpoch(0);
+        }
         return DateTime.fromMillisecondsSinceEpoch(0);
       }
 

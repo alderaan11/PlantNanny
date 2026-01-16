@@ -24,10 +24,16 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     try {
-      await ref.read(authNotifierProvider.notifier).signUp(_emailController.text.trim(), _passwordController.text);
+      await ref
+          .read(authNotifierProvider.notifier)
+          .signUp(_emailController.text.trim(), _passwordController.text);
+      if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Inscription échouée: ${e.toString()}')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Inscription échouée: ${e.toString()}')),
+      );
     }
   }
 
@@ -47,7 +53,9 @@ class _SignupPageState extends ConsumerState<SignupPage> {
             child: Card(
               elevation: 4,
               color: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -58,37 +66,67 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                       children: [
                         Icon(Icons.local_florist, size: 64, color: cs.primary),
                         const SizedBox(height: 12),
-                        Text('S\'inscrire', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          'S\'inscrire',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 8),
-                        Text('Créez un compte pour gérer l\'arrosage de vos plantes', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                          'Créez un compte pour gérer l\'arrosage de vos plantes',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                         const SizedBox(height: 16),
                       ],
                     ),
                     Form(
                       key: _formKey,
-                      child: Column(children: [
-                        TextFormField(
-                          controller: _emailController,
-                          decoration: const InputDecoration(labelText: 'Email'),
-                          validator: (v) => (v == null || v.isEmpty) ? 'Email requis' : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _passwordController,
-                          decoration: const InputDecoration(labelText: 'Mot de passe'),
-                          obscureText: true,
-                          validator: (v) => (v == null || v.length < 6) ? 'Mot de passe min 6 caractères' : null,
-                        ),
-                        const SizedBox(height: 18),
-                        auth.isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _submit, child: const Text('S\'inscrire'))),
-                      ]),
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                            ),
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Email requis'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _passwordController,
+                            decoration: const InputDecoration(
+                              labelText: 'Mot de passe',
+                            ),
+                            obscureText: true,
+                            validator: (v) => (v == null || v.length < 6)
+                                ? 'Mot de passe min 6 caractères'
+                                : null,
+                          ),
+                          const SizedBox(height: 18),
+                          auth.isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: _submit,
+                                    child: const Text('S\'inscrire'),
+                                  ),
+                                ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Retour')),                    
-                    ])
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('Retour'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -98,4 +136,4 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       ),
     );
   }
-} 
+}

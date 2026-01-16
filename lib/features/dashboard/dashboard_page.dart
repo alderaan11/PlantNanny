@@ -5,6 +5,7 @@ import 'package:plant_nanny/data/repositories/commands_repository.dart';
 import 'dashboard_providers.dart';
 import 'package:plant_nanny/data/providers/device_metadata_provider.dart';
 import 'package:plant_nanny/data/models/device_metadata.dart';
+import 'package:plant_nanny/core/widgets/api_error_widget.dart';
 
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key, required this.deviceId});
@@ -47,10 +48,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         await ref
             .read(commandsRepositoryProvider)
             .pump(widget.deviceId, result);
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Arrosage envoyé')));
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur en envoyant la commande: ${e.toString()}'),
@@ -317,6 +320,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                       .read(commandsRepositoryProvider)
                                       .forceReading(widget.deviceId);
 
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Demande de captage envoyée - Rafraîchissement dans 3s',
+                                      ),
+                                    ),
+                                  );
+
                                   // Rafraîchir les données après quelques secondes
                                   Future.delayed(const Duration(seconds: 3), () {
                                     // Invalider les providers pour forcer le rechargement
@@ -325,15 +337,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                     );
                                     ref.invalidate(dashboardAggregatedProvider);
                                   });
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Demande de captage envoyée - Rafraîchissement dans 3s',
-                                      ),
-                                    ),
-                                  );
                                 } catch (e) {
+                                  if (!context.mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text('Erreur: ${e.toString()}'),
@@ -384,7 +389,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            meta!.comments!,
+                            meta.comments!,
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey[800],
@@ -436,9 +441,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _buildNoDataWidget(context),
+        error: (e, _) => _buildErrorWidget(context, e),
       ),
     );
+  }
+
+  Widget _buildErrorWidget(BuildContext context, Object error) {
+    // Check if this is a connection error
+    if (ApiErrorWidget.isConnectionError(error)) {
+      return ApiErrorWidget(
+        error: error,
+        onRetry: () => ref.invalidate(dashboardProvider(widget.deviceId)),
+      );
+    }
+
+    // For other errors (like no data), show the no data widget
+    return _buildNoDataWidget(context);
   }
 
   Widget _buildNoDataWidget(BuildContext context) {
@@ -500,7 +518,7 @@ class _ScoreWidget extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 32, color: color),

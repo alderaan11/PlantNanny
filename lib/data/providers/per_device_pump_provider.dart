@@ -10,7 +10,7 @@ class PerDevicePumpNotifier extends StateNotifier<Map<String, int>> {
     final explicit = state[deviceId];
     if (explicit != null) return explicit;
     final meta = ref.read(deviceMetadataProvider)[deviceId];
-    if (meta != null && meta.baseDoseSec != null) return meta.baseDoseSec;
+    if (meta != null) return meta.baseDoseSec;
     return ref.read(globalPumpDurationProvider);
   }
 
@@ -19,6 +19,7 @@ class PerDevicePumpNotifier extends StateNotifier<Map<String, int>> {
   }
 }
 
-final perDevicePumpDurationProvider = StateNotifierProvider<PerDevicePumpNotifier, Map<String, int>>((ref) {
-  return PerDevicePumpNotifier(ref);
-});
+final perDevicePumpDurationProvider =
+    StateNotifierProvider<PerDevicePumpNotifier, Map<String, int>>((ref) {
+      return PerDevicePumpNotifier(ref);
+    });

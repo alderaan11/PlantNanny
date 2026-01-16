@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/repositories/devices_repository.dart';
-import '../../features/dashboard/dashboard_providers.dart';
 import '../../features/dashboard/dashboard_controller.dart';
 import '../dashboard/dashboard_page.dart';
+import 'package:plant_nanny/core/widgets/api_error_widget.dart';
 
 class DevicePreview extends ConsumerWidget {
   final String deviceId;
@@ -42,9 +41,9 @@ class DevicePreview extends ConsumerWidget {
           padding: const EdgeInsets.all(12.0),
           child: readingAsync.when(
             data: (r) {
-              final lum = r.luminosityPct?.toDouble() ?? 0.0;
-              final hum = r.humidityPct?.toDouble() ?? 0.0;
-              final temp = r.temperatureC?.toDouble() ?? 0.0;
+              final lum = r.luminosityPct.toDouble();
+              final hum = r.humidityPct.toDouble();
+              final temp = r.temperatureC.toDouble();
               final needs = _needsWater(hum);
               return ConstrainedBox(
                 constraints: const BoxConstraints(
@@ -121,22 +120,62 @@ class DevicePreview extends ConsumerWidget {
             ),
             error: (e, _) => SizedBox(
               height: 100,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Icon(Icons.sensors_off, size: 32, color: Colors.grey[400]),
-                  const SizedBox(height: 4),
-                  Text(
-                    'En attente de données...',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  ),
-                ],
-              ),
+              child: ApiErrorWidget.isConnectionError(e)
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.cloud_off,
+                          size: 32,
+                          color: Colors.orange[400],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Serveur injoignable',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed('/settings/server'),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 24),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Configurer',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 8),
+                        Icon(
+                          Icons.sensors_off,
+                          size: 32,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'En attente de données...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ),

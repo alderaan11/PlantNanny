@@ -5,6 +5,7 @@ import 'features/devices/devices_page.dart';
 import 'features/devices/add_plant_page.dart';
 import 'features/devices/add_device_bluetooth_page.dart';
 import 'features/history/history_page.dart';
+import 'features/settings/server_config_page.dart';
 
 import 'features/auth/login_page.dart';
 import 'features/auth/signup_page.dart';
@@ -150,6 +151,7 @@ class PlantNannyApp extends ConsumerWidget {
         '/devices': (_) => const DevicesPage(),
         '/devices/add': (_) => const AddPlantPage(),
         '/devices/add-bluetooth': (_) => const AddDeviceBluetoothPage(),
+        '/settings/server': (_) => const ServerConfigPage(),
       },
       home: authState.isSignedIn ? const MainPage() : const LoginPage(),
     );

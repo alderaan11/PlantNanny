@@ -9,24 +9,30 @@ void _log(String message) {
 }
 
 class RealBluetoothService extends core.BluetoothService {
-  static const String configServiceUuid = '12345678-1234-5678-1234-56789abcdef0';
+  static const String configServiceUuid =
+      '12345678-1234-5678-1234-56789abcdef0';
   static const String wifiSsidCharUuid = '12345678-1234-5678-1234-56789abcdef1';
   static const String wifiPassCharUuid = '12345678-1234-5678-1234-56789abcdef2';
   static const String mqttHostCharUuid = '12345678-1234-5678-1234-56789abcdef3';
   static const String mqttPortCharUuid = '12345678-1234-5678-1234-56789abcdef4';
-  static const String configStatusCharUuid = '12345678-1234-5678-1234-56789abcdef5';
+  static const String configStatusCharUuid =
+      '12345678-1234-5678-1234-56789abcdef5';
   static const String deviceIdCharUuid = '12345678-1234-5678-1234-56789abcdef6';
-  static const String ipAddressCharUuid = '12345678-1234-5678-1234-56789abcdef7';
+  static const String ipAddressCharUuid =
+      '12345678-1234-5678-1234-56789abcdef7';
   static const String serverIdCharUuid = '12345678-1234-5678-1234-56789abcdef8';
-  static const String wifiNetworksCharUuid = '12345678-1234-5678-1234-56789abcdef9';
+  static const String wifiNetworksCharUuid =
+      '12345678-1234-5678-1234-56789abcdef9';
   static const String pinCharUuid = '12345678-1234-5678-1234-56789abcdefa';
-  static const String mqttUsernameCharUuid = '12345678-1234-5678-1234-56789abcdefb';
-  static const String mqttPasswordCharUuid = '12345678-1234-5678-1234-56789abcdefc';
+  static const String mqttUsernameCharUuid =
+      '12345678-1234-5678-1234-56789abcdefb';
+  static const String mqttPasswordCharUuid =
+      '12345678-1234-5678-1234-56789abcdefc';
 
   @override
   Future<List<core.BluetoothEndpoint>> findNearEndpoints() async {
     final List<core.BluetoothEndpoint> endpoints = [];
-    
+
     if (await fbp.FlutterBluePlus.isSupported == false) {
       _log('Bluetooth not supported');
       throw Exception('Bluetooth not supported on this device');
@@ -35,15 +41,18 @@ class RealBluetoothService extends core.BluetoothService {
     _log('Checking adapter state...');
     final adapterState = await fbp.FlutterBluePlus.adapterState.first;
     _log('Adapter state: $adapterState');
-    
+
     if (adapterState != fbp.BluetoothAdapterState.on) {
       _log('Waiting for adapter to turn on...');
       await fbp.FlutterBluePlus.adapterState
           .where((state) => state == fbp.BluetoothAdapterState.on)
           .first
-          .timeout(const Duration(seconds: 10), onTimeout: () {
-        throw Exception('Bluetooth is not enabled');
-      });
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw Exception('Bluetooth is not enabled');
+            },
+          );
     }
 
     // Stop any existing scan first
@@ -54,38 +63,49 @@ class RealBluetoothService extends core.BluetoothService {
     }
 
     _log('Starting BLE scan...');
-    
+
     // Use onScanResults instead of scanResults for better Linux compatibility
-    final completer = Completer<void>();
-    
-    final subscription = fbp.FlutterBluePlus.onScanResults.listen((results) {
-      _log('onScanResults: ${results.length} devices');
-      for (final result in results) {
-        final name = result.device.platformName;
-        final localName = result.advertisementData.advName;
-        final effectiveName = name.isNotEmpty ? name : localName;
-        
-        _log('  Device: ${result.device.remoteId} name="$effectiveName" rssi=${result.rssi}');
-        
-        final matchesByName = effectiveName.toLowerCase().contains('plantnanny');
-        final matchesByService = result.advertisementData.serviceUuids.any(
-          (uuid) => uuid.toString().toLowerCase() == configServiceUuid.toLowerCase(),
-        );
-        
-        if (matchesByName || matchesByService) {
-          _log('  -> MATCH! Adding to endpoints');
-          if (endpoints.every((e) => e.id != result.device.remoteId.str)) {
-            endpoints.add(RealBluetoothEndpoint(
-              device: result.device,
-              deviceName: effectiveName.isNotEmpty ? effectiveName : 'PlantNanny Device',
-            ));
+    final subscription = fbp.FlutterBluePlus.onScanResults.listen(
+      (results) {
+        _log('onScanResults: ${results.length} devices');
+        for (final result in results) {
+          final name = result.device.platformName;
+          final localName = result.advertisementData.advName;
+          final effectiveName = name.isNotEmpty ? name : localName;
+
+          _log(
+            '  Device: ${result.device.remoteId} name="$effectiveName" rssi=${result.rssi}',
+          );
+
+          final matchesByName = effectiveName.toLowerCase().contains(
+            'plantnanny',
+          );
+          final matchesByService = result.advertisementData.serviceUuids.any(
+            (uuid) =>
+                uuid.toString().toLowerCase() ==
+                configServiceUuid.toLowerCase(),
+          );
+
+          if (matchesByName || matchesByService) {
+            _log('  -> MATCH! Adding to endpoints');
+            if (endpoints.every((e) => e.id != result.device.remoteId.str)) {
+              endpoints.add(
+                RealBluetoothEndpoint(
+                  device: result.device,
+                  deviceName: effectiveName.isNotEmpty
+                      ? effectiveName
+                      : 'PlantNanny Device',
+                ),
+              );
+            }
           }
         }
-      }
-    }, onError: (e) {
-      _log('Scan error: $e');
-    });
-    
+      },
+      onError: (e) {
+        _log('Scan error: $e');
+      },
+    );
+
     // Also check bonded/system devices (already known to BlueZ)
     _log('Checking bonded devices...');
     try {
@@ -97,17 +117,19 @@ class RealBluetoothService extends core.BluetoothService {
         if (name.toLowerCase().contains('plantnanny')) {
           _log('  -> MATCH in bonded devices!');
           if (endpoints.every((e) => e.id != device.remoteId.str)) {
-            endpoints.add(RealBluetoothEndpoint(
-              device: device,
-              deviceName: name.isNotEmpty ? name : 'PlantNanny Device',
-            ));
+            endpoints.add(
+              RealBluetoothEndpoint(
+                device: device,
+                deviceName: name.isNotEmpty ? name : 'PlantNanny Device',
+              ),
+            );
           }
         }
       }
     } catch (e) {
       _log('Error getting bonded devices: $e');
     }
-    
+
     // Start scan
     try {
       await fbp.FlutterBluePlus.startScan(
@@ -123,7 +145,7 @@ class RealBluetoothService extends core.BluetoothService {
 
     // Wait for scan to complete
     await Future.delayed(const Duration(seconds: 10));
-    
+
     try {
       await fbp.FlutterBluePlus.stopScan();
     } catch (e) {
@@ -147,7 +169,7 @@ class RealBluetoothService extends core.BluetoothService {
 class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   final fbp.BluetoothDevice device;
   final String _name;
-  
+
   fbp.BluetoothCharacteristic? _wifiSsidChar;
   fbp.BluetoothCharacteristic? _wifiPassChar;
   fbp.BluetoothCharacteristic? _mqttHostChar;
@@ -160,12 +182,14 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   fbp.BluetoothCharacteristic? _serverIdChar;
   fbp.BluetoothCharacteristic? _wifiNetworksChar;
   fbp.BluetoothCharacteristic? _pinChar;
-  
+
   StreamSubscription? _statusSubscription;
   StreamSubscription? _ipSubscription;
-  final StreamController<String> _messageController = StreamController.broadcast();
+  final StreamController<String> _messageController =
+      StreamController.broadcast();
 
-  RealBluetoothEndpoint({required this.device, String? deviceName}) : _name = deviceName ?? 'Unknown';
+  RealBluetoothEndpoint({required this.device, String? deviceName})
+    : _name = deviceName ?? 'Unknown';
 
   @override
   String get id => device.remoteId.str;
@@ -177,13 +201,17 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   Future<bool> connect() async {
     try {
       _log('Connecting to ${device.remoteId}');
-      await device.connect(license: fbp.License.free, timeout: const Duration(seconds: 15));
+      await device.connect(
+        license: fbp.License.free,
+        timeout: const Duration(seconds: 15),
+      );
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       final services = await device.discoverServices();
-      
+
       for (final service in services) {
-        if (service.uuid.toString().toLowerCase() == RealBluetoothService.configServiceUuid.toLowerCase()) {
+        if (service.uuid.toString().toLowerCase() ==
+            RealBluetoothService.configServiceUuid.toLowerCase()) {
           _log('Found PlantNanny config service');
           for (final char in service.characteristics) {
             final uuid = char.uuid.toString().toLowerCase();
@@ -194,7 +222,9 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
 
       if (_configStatusChar != null) {
         await _configStatusChar!.setNotifyValue(true);
-        _statusSubscription = _configStatusChar!.onValueReceived.listen((value) {
+        _statusSubscription = _configStatusChar!.onValueReceived.listen((
+          value,
+        ) {
           final status = utf8.decode(value);
           _log('Status: $status');
           _messageController.add(status);
@@ -234,7 +264,7 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
       RealBluetoothService.wifiNetworksCharUuid: () => _wifiNetworksChar = char,
       RealBluetoothService.pinCharUuid: () => _pinChar = char,
     };
-    
+
     bool found = false;
     for (final entry in mapping.entries) {
       if (uuid == entry.key.toLowerCase()) {
@@ -255,19 +285,34 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   @override
   Future<void> send(String message) async {
     if (message.startsWith('PIN:')) {
-      await _pinChar?.write(utf8.encode(message.substring(4)), withoutResponse: false);
+      await _pinChar?.write(
+        utf8.encode(message.substring(4)),
+        withoutResponse: false,
+      );
     } else if (message.startsWith('WIFI:')) {
       final parts = message.substring(5).split(':');
       if (parts.length >= 2) {
-        await _wifiSsidChar?.write(utf8.encode(parts[0]), withoutResponse: false);
-        await _wifiPassChar?.write(utf8.encode(parts.sublist(1).join(':')), withoutResponse: false);
+        await _wifiSsidChar?.write(
+          utf8.encode(parts[0]),
+          withoutResponse: false,
+        );
+        await _wifiPassChar?.write(
+          utf8.encode(parts.sublist(1).join(':')),
+          withoutResponse: false,
+        );
       }
     } else if (message.startsWith('MQTT:')) {
       final parts = message.substring(5).split(':');
       if (parts.isNotEmpty) {
-        await _mqttHostChar?.write(utf8.encode(parts[0]), withoutResponse: false);
+        await _mqttHostChar?.write(
+          utf8.encode(parts[0]),
+          withoutResponse: false,
+        );
         if (parts.length > 1) {
-          await _mqttPortChar?.write(utf8.encode(parts[1]), withoutResponse: false);
+          await _mqttPortChar?.write(
+            utf8.encode(parts[1]),
+            withoutResponse: false,
+          );
         }
       }
     }
@@ -276,13 +321,17 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   @override
   Future<String?> recv({Duration? timeout}) async {
     try {
-      return await _messageController.stream.first.timeout(timeout ?? const Duration(seconds: 30));
+      return await _messageController.stream.first.timeout(
+        timeout ?? const Duration(seconds: 30),
+      );
     } catch (_) {
       try {
         if (_configStatusChar != null) {
           final value = await _configStatusChar!.read();
           final status = utf8.decode(value);
-          if (status.isNotEmpty && status != 'READY' && status != 'AWAITING_CONFIG') {
+          if (status.isNotEmpty &&
+              status != 'READY' &&
+              status != 'AWAITING_CONFIG') {
             return status;
           }
         }
@@ -291,9 +340,12 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     }
   }
 
-  Future<String?> _pollStatus(Duration timeout, bool Function(String) predicate) async {
+  Future<String?> _pollStatus(
+    Duration timeout,
+    bool Function(String) predicate,
+  ) async {
     final endTime = DateTime.now().add(timeout);
-    
+
     try {
       final result = await _messageController.stream
           .where(predicate)
@@ -301,7 +353,7 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
           .timeout(const Duration(seconds: 5));
       return result;
     } catch (_) {}
-    
+
     while (DateTime.now().isBefore(endTime)) {
       try {
         if (_configStatusChar != null) {
@@ -314,11 +366,18 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     return null;
   }
 
-  Future<String?> waitForWifiResult({Duration timeout = const Duration(seconds: 30)}) async {
-    return _pollStatus(timeout, (s) => s == 'WIFI_CONFIGURED' || s == 'WIFI_FAILED');
+  Future<String?> waitForWifiResult({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
+    return _pollStatus(
+      timeout,
+      (s) => s == 'WIFI_CONFIGURED' || s == 'WIFI_FAILED',
+    );
   }
 
-  Future<bool> waitForPaired({Duration timeout = const Duration(seconds: 30)}) async {
+  Future<bool> waitForPaired({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     final result = await _pollStatus(timeout, (s) => s == 'PAIRED');
     return result == 'PAIRED';
   }
@@ -334,7 +393,9 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     }
   }
 
-  Future<String?> waitForPinResult({Duration timeout = const Duration(seconds: 10)}) async {
+  Future<String?> waitForPinResult({
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
     return _pollStatus(timeout, (s) => s == 'PIN_OK' || s == 'PIN_INVALID');
   }
 
@@ -363,15 +424,28 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
         await Future.delayed(const Duration(milliseconds: 100));
       }
       if (_mqttPortChar != null) {
-        await _mqttPortChar!.write(utf8.encode(port.toString()), withoutResponse: false);
+        await _mqttPortChar!.write(
+          utf8.encode(port.toString()),
+          withoutResponse: false,
+        );
         await Future.delayed(const Duration(milliseconds: 100));
       }
-      if (username != null && username.isNotEmpty && _mqttUsernameChar != null) {
-        await _mqttUsernameChar!.write(utf8.encode(username), withoutResponse: false);
+      if (username != null &&
+          username.isNotEmpty &&
+          _mqttUsernameChar != null) {
+        await _mqttUsernameChar!.write(
+          utf8.encode(username),
+          withoutResponse: false,
+        );
         await Future.delayed(const Duration(milliseconds: 100));
       }
-      if (password != null && password.isNotEmpty && _mqttPasswordChar != null) {
-        await _mqttPasswordChar!.write(utf8.encode(password), withoutResponse: false);
+      if (password != null &&
+          password.isNotEmpty &&
+          _mqttPasswordChar != null) {
+        await _mqttPasswordChar!.write(
+          utf8.encode(password),
+          withoutResponse: false,
+        );
       }
       return true;
     } catch (e) {
@@ -382,9 +456,13 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
 
   @override
   Future<String?> getDeviceId() async {
-    _log('getDeviceId: _deviceIdChar is ${_deviceIdChar == null ? "null" : "available"}');
+    _log(
+      'getDeviceId: _deviceIdChar is ${_deviceIdChar == null ? "null" : "available"}',
+    );
     if (_deviceIdChar == null) {
-      _log('getDeviceId: Device ID characteristic not found during BLE discovery');
+      _log(
+        'getDeviceId: Device ID characteristic not found during BLE discovery',
+      );
       return null;
     }
     try {
@@ -410,11 +488,13 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   }
 
   @override
-  Future<String?> waitForIpAddress({Duration timeout = const Duration(seconds: 30)}) async {
+  Future<String?> waitForIpAddress({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     try {
       final existingIp = await getIpAddress();
       if (existingIp != null && existingIp.isNotEmpty) return existingIp;
-      
+
       await for (final message in _messageController.stream.timeout(timeout)) {
         if (message.startsWith('IP:')) return message.substring(3);
       }
@@ -425,7 +505,10 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   Future<bool> sendServerId(String serverId) async {
     try {
       if (_serverIdChar != null) {
-        await _serverIdChar!.write(utf8.encode(serverId), withoutResponse: false);
+        await _serverIdChar!.write(
+          utf8.encode(serverId),
+          withoutResponse: false,
+        );
         return true;
       }
     } catch (_) {}
@@ -443,7 +526,9 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
     return [];
   }
 
-  Future<bool> waitForConfigResult({Duration timeout = const Duration(seconds: 30)}) async {
+  Future<bool> waitForConfigResult({
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     final status = await recv(timeout: timeout);
     return status == 'WIFI_CONFIGURED';
   }

@@ -77,6 +77,7 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
       // Refresh the devices list to show the new device
       ref.invalidate(devicesControllerProvider);
 
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Appareil enregistré')));
@@ -86,6 +87,7 @@ class _AddPlantPageState extends ConsumerState<AddPlantPage> {
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));

@@ -13,9 +13,15 @@ import 'features/auth/main_page.dart';
 import 'data/auth/auth_notifier.dart';
 import 'core/server_config_provider.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(
     ProviderScope(

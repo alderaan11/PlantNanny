@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "141691904005",
+    "project_id": "plantnanny-90165",
+    "storage_bucket": "plantnanny-90165.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:141691904005:android:83d9ecb050adc076f43c6c",
+        "android_client_info": {
+          "package_name": "com.example.plant_nanny"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "141691904005-0931ogdkk40rmisbak64e6g81fuqihbr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAN6-pY3JkRqUdWyOCFc4TegtDMgcfafSY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "141691904005-0931ogdkk40rmisbak64e6g81fuqihbr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "141691904005-sv8mmhgdo85ce2o97f51735rfes27e3g.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.plantNanny"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as fbp;
 import '../../core/bluetooth_service.dart' as core;
+import '../../core/bluetooth_permissions.dart';
 
 void _log(String message) {
   if (kDebugMode) print('[BLE] $message');
@@ -32,6 +33,18 @@ class RealBluetoothService extends core.BluetoothService {
   @override
   Future<List<core.BluetoothEndpoint>> findNearEndpoints() async {
     final List<core.BluetoothEndpoint> endpoints = [];
+
+    // Request permissions before scanning
+    _log('Requesting Bluetooth permissions...');
+    final permissionsGranted = await BluetoothPermissions.requestPermissions();
+    _log('Permissions granted: $permissionsGranted');
+
+    if (!permissionsGranted) {
+      _log('Bluetooth permissions not granted');
+      throw Exception(
+        'Bluetooth permissions not granted. Please enable Location and Nearby Devices permissions.',
+      );
+    }
 
     if (await fbp.FlutterBluePlus.isSupported == false) {
       _log('Bluetooth not supported');
@@ -396,7 +409,16 @@ class RealBluetoothEndpoint implements core.BluetoothEndpoint {
   Future<String?> waitForPinResult({
     Duration timeout = const Duration(seconds: 10),
   }) async {
-    return _pollStatus(timeout, (s) => s == 'PIN_OK' || s == 'PIN_INVALID');
+    // Also accept states that indicate PIN was successful and ESP moved on
+    return _pollStatus(
+      timeout,
+      (s) =>
+          s == 'PIN_OK' ||
+          s == 'PIN_INVALID' ||
+          s == 'AWAITING_WIFI' ||
+          s == 'WIFI_CONFIGURED' ||
+          s == 'CONFIGURING',
+    );
   }
 
   Future<bool> sendWifiCredentials(String ssid, String password) async {

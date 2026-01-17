@@ -44,7 +44,7 @@ class DeviceSetupModel {
   final String? errorMessage;
   final List<String> wifiNetworks;
   final String? registeredDeviceId;
-  final String? cachedDeviceId;  // Cached early before BLE disconnects
+  final String? cachedDeviceId; // Cached early before BLE disconnects
 
   DeviceSetupModel({
     this.state = DeviceSetupState.scanning,
@@ -192,7 +192,9 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       );
       _log('submitPin: Response: $response');
 
-      if (response == 'PIN_OK') {
+      if (response == 'PIN_OK' ||
+          response == 'AWAITING_WIFI' ||
+          response == 'CONFIGURING') {
         // PIN verified - cache device ID NOW before BLE might disconnect
         String? deviceId;
         try {
@@ -201,13 +203,26 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
         } catch (e) {
           _log('submitPin: Failed to get device ID: $e');
         }
-        
+
         // Fetch WiFi networks
         final networks = await endpoint.getAvailableWifiNetworks();
 
         state = state.copyWith(
           state: DeviceSetupState.selectWifi,
           wifiNetworks: networks,
+          cachedDeviceId: deviceId,
+        );
+      } else if (response == 'WIFI_CONFIGURED') {
+        // ESP already configured WiFi, skip to next step
+        String? deviceId;
+        try {
+          deviceId = await endpoint.getDeviceId();
+          _log('submitPin: Device already configured, ID = $deviceId');
+        } catch (e) {
+          _log('submitPin: Failed to get device ID: $e');
+        }
+        state = state.copyWith(
+          state: DeviceSetupState.configuring,
           cachedDeviceId: deviceId,
         );
       } else if (response == 'PIN_INVALID') {
@@ -337,7 +352,7 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
 
       // Get device ID - first try cached value (BLE might be disconnected now)
       String? deviceId = state.cachedDeviceId;
-      
+
       // If not cached, try to read from BLE (might work if still connected)
       if (deviceId == null || deviceId.isEmpty) {
         _log('No cached device ID, trying BLE...');
@@ -351,7 +366,7 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       _log('Got device UUID: $deviceId');
 
       // Register device with server
-      String registeredId = deviceId;  // Default to UUID from ESP32
+      String registeredId = deviceId; // Default to UUID from ESP32
       try {
         final registerRequest = RegisterDeviceRequest(
           (b) => b
@@ -385,7 +400,7 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
       _log('Setup failed: $e');
       // Use cached device ID if available (BLE likely disconnected)
       String? fallbackId = state.cachedDeviceId;
-      
+
       // If no cached ID, try BLE one more time
       if (fallbackId == null || fallbackId.isEmpty) {
         final endpoint = state.selectedDevice;
@@ -395,11 +410,13 @@ class DeviceSetupNotifier extends StateNotifier<DeviceSetupModel> {
           } catch (_) {}
         }
       }
-      
+
       state = state.copyWith(
         state: DeviceSetupState.success,
         registeredDeviceId: fallbackId,
-        errorMessage: fallbackId == null ? 'Could not get device ID from ESP32' : null,
+        errorMessage: fallbackId == null
+            ? 'Could not get device ID from ESP32'
+            : null,
       );
     }
   }

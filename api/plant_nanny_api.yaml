@@ -66,6 +66,15 @@ paths:
   /v1/devices/{deviceId}/ota:
     $ref: 'paths/ota.yaml#/v1~1devices~1{deviceId}~1ota'
 
+  /v1/firmware:
+    $ref: 'paths/firmware.yaml#/v1~1firmware'
+
+  /v1/firmware/devices:
+    $ref: 'paths/firmware.yaml#/v1~1firmware~1devices'
+
+  /v1/devices/{deviceId}/firmware/ota:
+    $ref: 'paths/firmware.yaml#/v1~1devices~1{deviceId}~1firmware~1ota'
+
 components:
   parameters:
     DeviceId:

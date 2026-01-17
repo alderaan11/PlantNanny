@@ -1,8 +1,10 @@
 """Commands handlers - /v1/devices/{deviceId}/commands"""
 from datetime import datetime, timezone
 import logging
+import asyncio
 
-from storage import devices_store, commands_store, generate_id
+import database as db
+from mqtt_handler import get_mqtt_handler
 
 logger = logging.getLogger("plant_nanny.commands")
 if not logger.handlers:
@@ -13,61 +15,97 @@ if not logger.handlers:
 logger.setLevel(logging.INFO)
 
 
-def post(device_id: str, body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
+async def _publish_command_via_mqtt(device_id: str, command_type: str, command_data: dict) -> bool:
+    """Publish command to device via MQTT for immediate delivery."""
+    try:
+        from mqtt_handler import publish_device_command
+        
+        action_map = {
+            "force_reading": "send_now",
+            "pump_water": "pump_water",
+            "set_interval": "set_interval",
+            "restart": "restart",
+            "ota_update": "ota_update",
+        }
+        
+        action = action_map.get(command_type, command_type)
+        mqtt_command = {"action": action}
+        
+        if command_data.get("durationMs"):
+            mqtt_command["durationMs"] = command_data["durationMs"]
+        if command_data.get("amountMl"):
+            mqtt_command["amountMl"] = command_data["amountMl"]
+        if command_data.get("intervalMs"):
+            mqtt_command["intervalMs"] = command_data["intervalMs"]
+        if command_data.get("url"):
+            mqtt_command["url"] = command_data["url"]
+        
+        success = await publish_device_command(device_id, mqtt_command)
+        return success
+        
+    except Exception as e:
+        logger.error(f"Failed to publish command via MQTT: {e}")
+        return False
+
+
+async def post(device_id: str, body: dict, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
     """Create a command for a device (force reading, pump, etc.)."""
     info = token_info or user or {}
     user_uid = info.get("uid", "")
 
     logger.info(f"Create command request - device={device_id} user_uid={user_uid}")
 
-    device = devices_store.get(device_id)
-    if not device or device.get("ownerUid") != user_uid:
-        logger.info(f"Device lookup failed. device_exists={bool(device)} ownerUid={device.get('ownerUid') if device else None} user_uid={user_uid}")
+    device = await db.get_device_for_owner(device_id, user_uid)
+    if not device:
+        logger.info(f"Device lookup failed for {device_id}")
         return {"error": "Device not found"}, 404
 
-    now = datetime.now(timezone.utc).isoformat()
-    command_id = generate_id()
+    command = await db.create_command(
+        device_id=device_id,
+        command_type=body["type"],
+        requested_by=user_uid,
+        duration_ms=body.get("durationMs"),
+        amount_ml=body.get("amountMl"),
+    )
     
-    command = {
-        "id": command_id,
-        "deviceId": device_id,
-        "type": body["type"],
-        "status": "pending",
-        "createdAt": now,
-        "updatedAt": now,
-        "durationMs": body.get("durationMs"),
-        "amountMl": body.get("amountMl"),
-        "requestedBy": user_uid,
-        "errorMessage": None,
-    }
+    result = command.to_dict()
+    result["deliveryMethod"] = "mqtt"
     
-    if device_id not in commands_store:
-        commands_store[device_id] = []
-    commands_store[device_id].append(command)
+    # Try to deliver command immediately via MQTT
+    try:
+        success = await _publish_command_via_mqtt(device_id, body["type"], body)
+        if success:
+            await db.update_command_status(command.id, "sent")
+            result["status"] = "sent"
+            logger.info(f"Command {command.id} delivered via MQTT to {device_id}")
+        else:
+            result["deliveryMethod"] = "poll"
+            logger.warning(f"Command {command.id} will be delivered via polling for {device_id}")
+    except Exception as e:
+        logger.warning(f"Could not deliver command via MQTT: {e}. Will use polling.")
+        result["deliveryMethod"] = "poll"
     
-    return command, 201
+    return result, 201
 
 
-def get(device_id: str, limit: int = 100, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
+async def get(device_id: str, limit: int = 100, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
     """List commands (for UI history/debug)."""
     info = token_info or user or {}
     user_uid = info.get("uid", "")
     
-    device = devices_store.get(device_id)
-    if not device or device.get("ownerUid") != user_uid:
+    device = await db.get_device_for_owner(device_id, user_uid)
+    if not device:
         return {"error": "Device not found"}, 404
     
-    device_commands = commands_store.get(device_id, [])
-    sorted_commands = sorted(device_commands, key=lambda c: c["createdAt"], reverse=True)
-    limited = sorted_commands[:limit]
+    commands = await db.get_commands(device_id, limit=limit)
     
     return {
-        "count": len(limited),
-        "items": limited,
+        "count": len(commands),
+        "items": [c.to_dict() for c in commands],
     }, 200
 
 
-def pending_get(device_id: str, max: int = 5, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
+async def pending_get(device_id: str, max: int = 5, user: dict = None, token_info: dict = None) -> tuple[dict, int]:
     """ESP32 polls pending commands."""
     device_info = token_info or user or {}
     auth_device_id = device_info.get("device_id")
@@ -75,23 +113,19 @@ def pending_get(device_id: str, max: int = 5, user: dict = None, token_info: dic
     if auth_device_id != device_id:
         return {"error": "Device key doesn't match device ID"}, 401
     
-    device_commands = commands_store.get(device_id, [])
-    pending = [c for c in device_commands if c["status"] == "pending"]
-    sorted_pending = sorted(pending, key=lambda c: c["createdAt"])
-    limited = sorted_pending[:max]
+    commands = await db.get_commands(device_id, status="pending", limit=max)
     
-    now = datetime.now(timezone.utc).isoformat()
-    for cmd in limited:
-        cmd["status"] = "sent"
-        cmd["updatedAt"] = now
+    # Mark as sent
+    for cmd in commands:
+        await db.update_command_status(cmd.id, "sent")
     
     return {
-        "count": len(limited),
-        "items": limited,
+        "count": len(commands),
+        "items": [c.to_dict() for c in commands],
     }, 200
 
 
-def command_id_ack_post(
+async def command_id_ack_post(
     device_id: str, 
     command_id: str, 
     body: dict,
@@ -105,21 +139,13 @@ def command_id_ack_post(
     if auth_device_id != device_id:
         return {"error": "Device key doesn't match device ID"}, 401
     
-    device_commands = commands_store.get(device_id, [])
-    
-    command = None
-    for cmd in device_commands:
-        if cmd["id"] == command_id:
-            command = cmd
-            break
+    command = await db.update_command_status(
+        command_id=command_id,
+        status=body["status"],
+        error_message=body.get("errorMessage"),
+    )
     
     if not command:
         return {"error": "Command not found"}, 404
     
-    now = datetime.now(timezone.utc).isoformat()
-    command["status"] = body["status"]
-    command["updatedAt"] = now
-    if body.get("errorMessage"):
-        command["errorMessage"] = body["errorMessage"]
-    
-    return command, 200
+    return command.to_dict(), 200

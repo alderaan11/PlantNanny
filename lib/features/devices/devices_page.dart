@@ -5,7 +5,7 @@ import 'package:plant_nanny/features/dashboard/dashboard_page.dart';
 import 'package:plant_nanny/data/providers/device_metadata_provider.dart';
 import 'package:plant_nanny/data/models/device_metadata.dart';
 import 'package:plant_nanny/data/repositories/devices_repository.dart';
-
+import 'package:plant_nanny/core/widgets/api_error_widget.dart';
 
 class DevicesPage extends ConsumerWidget {
   const DevicesPage({super.key});
@@ -17,7 +17,8 @@ class DevicesPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Mes capteurs')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).pushNamed('/devices/add-bluetooth'),
+        onPressed: () =>
+            Navigator.of(context).pushNamed('/devices/add-bluetooth'),
         child: const Icon(Icons.add, size: 32),
       ),
       body: devices.when(
@@ -30,7 +31,9 @@ class DevicesPage extends ConsumerWidget {
                   const Text('Aucun appareil trouvé.'),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).pushNamed('/devices/add-bluetooth'),
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pushNamed('/devices/add-bluetooth'),
                     icon: const Icon(Icons.bluetooth),
                     label: const Text('Ajouter un appareil'),
                   ),
@@ -53,7 +56,9 @@ class DevicesPage extends ConsumerWidget {
                   parts.add('${meta.baseDoseSec} sec');
                   return parts.join(' • ');
                 }
-                final ls = device.lastSeen != null ? 'Dernière vue: ${device.lastSeen}' : null;
+                final ls = device.lastSeen != null
+                    ? 'Dernière vue: ${device.lastSeen}'
+                    : null;
                 return ls ?? device.deviceId;
               }
 
@@ -61,36 +66,75 @@ class DevicesPage extends ConsumerWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: .12),
                     child: meta?.plantType != null
-                        ? Text(meta!.plantType![0].toUpperCase(), style: TextStyle(color: Theme.of(context).colorScheme.primary))
+                        ? Text(
+                            meta!.plantType![0].toUpperCase(),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          )
                         : const Icon(Icons.sensor_window, color: Colors.green),
                   ),
-                  title: Text(device.name ?? device.deviceId, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  title: Text(
+                    device.name ?? device.deviceId,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   subtitle: Text(subtitleText()),
                   trailing: PopupMenuButton<String>(
                     onSelected: (v) async {
                       if (v == 'edit') {
-                        await _showEditMetadataSheet(context, ref, device.deviceId, meta);
+                        await _showEditMetadataSheet(
+                          context,
+                          ref,
+                          device.deviceId,
+                          meta,
+                        );
                       } else if (v == 'remove') {
                         final ok = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
                             title: const Text('Supprimer l\'appareil'),
-                            content: const Text('Êtes-vous sûr de vouloir supprimer cet appareil ?'),
+                            content: const Text(
+                              'Êtes-vous sûr de vouloir supprimer cet appareil ?',
+                            ),
                             actions: [
-                              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Annuler')),
-                              TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Supprimer')),
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(false),
+                                child: const Text('Annuler'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(true),
+                                child: const Text('Supprimer'),
+                              ),
                             ],
                           ),
                         );
                         if (ok == true) {
                           try {
-                            await ref.read(devicesRepositoryProvider).unregister(device.deviceId);
-                            ref.read(deviceMetadataProvider.notifier).remove(device.deviceId);
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appareil supprimé')));
+                            await ref
+                                .read(devicesRepositoryProvider)
+                                .unregister(device.deviceId);
+                            ref
+                                .read(deviceMetadataProvider.notifier)
+                                .remove(device.deviceId);
+                            // Refresh the devices list to update the UI
+                            ref.invalidate(devicesControllerProvider);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Appareil supprimé'),
+                              ),
+                            );
                           } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erreur: ${e.toString()}'),
+                              ),
+                            );
                           }
                         }
                       }
@@ -104,7 +148,8 @@ class DevicesPage extends ConsumerWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => DashboardPage(deviceId: device.deviceId),
+                        builder: (_) =>
+                            DashboardPage(deviceId: device.deviceId),
                       ),
                     );
                   },
@@ -114,15 +159,25 @@ class DevicesPage extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Erreur: $e')),
+        error: (e, _) => ApiErrorWidget(
+          error: e,
+          onRetry: () => ref.invalidate(devicesControllerProvider),
+        ),
       ),
     );
   }
 
-  Future<void> _showEditMetadataSheet(BuildContext context, WidgetRef ref, String deviceId, DeviceMetadata? existing) async {
+  Future<void> _showEditMetadataSheet(
+    BuildContext context,
+    WidgetRef ref,
+    String deviceId,
+    DeviceMetadata? existing,
+  ) async {
     final meta = existing?.copyWith() ?? DeviceMetadata(baseDoseSec: 5);
     final plantController = TextEditingController(text: meta.plantType ?? '');
-    final doseController = TextEditingController(text: meta.baseDoseSec.toString());
+    final doseController = TextEditingController(
+      text: meta.baseDoseSec.toString(),
+    );
     final commentsController = TextEditingController(text: meta.comments ?? '');
     bool isOutdoor = meta.isOutdoor;
 
@@ -133,30 +188,72 @@ class DevicesPage extends ConsumerWidget {
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text('Éditer le capteur', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextFormField(controller: plantController, decoration: const InputDecoration(labelText: 'Type de plante (ex: Tomate)')),
-            const SizedBox(height: 8),
-            StatefulBuilder(builder: (ctx, setState) => SwitchListTile(value: isOutdoor, title: const Text('Extérieur'), onChanged: (v) => setState(() => isOutdoor = v))),
-            const SizedBox(height: 8),
-            TextFormField(controller: doseController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Dose de base (sec)')),
-            const SizedBox(height: 8),
-            TextFormField(controller: commentsController, decoration: const InputDecoration(labelText: 'Commentaires'), minLines: 2, maxLines: 4),
-            const SizedBox(height: 12),
-            ElevatedButton(onPressed: () {
-              final newMeta = DeviceMetadata(
-                plantType: plantController.text.trim().isEmpty ? null : plantController.text.trim(),
-                isOutdoor: isOutdoor,
-                baseDoseSec: int.tryParse(doseController.text.trim()) ?? meta.baseDoseSec,
-                comments: commentsController.text.trim().isEmpty ? null : commentsController.text.trim(),
-              );
-              ref.read(deviceMetadataProvider.notifier).setMetadata(deviceId, newMeta);
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Métadonnées enregistrées')));
-            }, child: const Text('Enregistrer')),
-            const SizedBox(height: 12),
-          ]),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Éditer le capteur',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: plantController,
+                decoration: const InputDecoration(
+                  labelText: 'Type de plante (ex: Tomate)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              StatefulBuilder(
+                builder: (ctx, setState) => SwitchListTile(
+                  value: isOutdoor,
+                  title: const Text('Extérieur'),
+                  onChanged: (v) => setState(() => isOutdoor = v),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: doseController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Dose de base (sec)',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: commentsController,
+                decoration: const InputDecoration(labelText: 'Commentaires'),
+                minLines: 2,
+                maxLines: 4,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () {
+                  final newMeta = DeviceMetadata(
+                    plantType: plantController.text.trim().isEmpty
+                        ? null
+                        : plantController.text.trim(),
+                    isOutdoor: isOutdoor,
+                    baseDoseSec:
+                        int.tryParse(doseController.text.trim()) ??
+                        meta.baseDoseSec,
+                    comments: commentsController.text.trim().isEmpty
+                        ? null
+                        : commentsController.text.trim(),
+                  );
+                  ref
+                      .read(deviceMetadataProvider.notifier)
+                      .setMetadata(deviceId, newMeta);
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Métadonnées enregistrées')),
+                  );
+                },
+                child: const Text('Enregistrer'),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );
@@ -166,4 +263,3 @@ class DevicesPage extends ConsumerWidget {
     commentsController.dispose();
   }
 }
-

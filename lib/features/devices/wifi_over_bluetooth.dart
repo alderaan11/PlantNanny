@@ -17,14 +17,10 @@ Future<bool> sendWifiCredentials(
 
     await endpoint.send(payload);
 
-    // Optionally wait for a response acknowledging success.
     final resp = await endpoint.recv(timeout: Duration(seconds: 5));
-    if (resp == null) return true; // no response required
+    if (resp == null) return true;
 
-    // Basic handshake: device may reply with 'OK' or JSON {status: 'ok'}
-    if (resp.trim().toLowerCase().contains('ok') || resp.contains('"status"'))
-      return true;
-    return false;
+    return resp.trim().toLowerCase().contains('ok') || resp.contains('"status"');
   } catch (_) {
     return false;
   }

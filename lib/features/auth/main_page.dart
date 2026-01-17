@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../home/home_screen.dart';
 import '../devices/devices_page.dart';
 import '../settings/settings_page.dart';
+import '../settings/server_config_page.dart';
 import '../../data/auth/auth_notifier.dart';
 
 class MainPage extends ConsumerStatefulWidget {
@@ -32,6 +33,7 @@ class _MainPageState extends ConsumerState<MainPage> {
           HomeScreen(),
           DevicesPage(),
           ArrosagePage(),
+          ServerConfigPage(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -39,14 +41,14 @@ class _MainPageState extends ConsumerState<MainPage> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
           ],
           border: Border(
             top: BorderSide(
-              color: const Color(0xFF606C38).withOpacity(0.2),
+              color: const Color(0xFF606C38).withValues(alpha: 0.2),
               width: 1,
             ),
           ),
@@ -59,21 +61,32 @@ class _MainPageState extends ConsumerState<MainPage> {
           unselectedItemColor: Colors.grey,
           onTap: (i) {
             setState(() => _currentIndex = i);
-            _pageController.animateToPage(i, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+            _pageController.animateToPage(
+              i,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
           },
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
             BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Capteurs'),
-            BottomNavigationBarItem(icon: Icon(Icons.water_damage), label: 'Arrosage'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.water_damage),
+              label: 'Arrosage',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Config',
+            ),
           ],
         ),
       ),
-      // show logout FAB only on the Home tab
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
-              onPressed: () async => await ref.read(authNotifierProvider.notifier).signOut(),
-              child: const Icon(Icons.logout),
+              onPressed: () async =>
+                  await ref.read(authNotifierProvider.notifier).signOut(),
               tooltip: 'Se déconnecter',
+              child: const Icon(Icons.logout),
             )
           : null,
     );

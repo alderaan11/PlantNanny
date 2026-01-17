@@ -128,4 +128,21 @@ class FlutterBluetoothEndpoint implements core.BluetoothEndpoint {
       await device.disconnect();
     } catch (_) {}
   }
+
+  @override
+  Future<String?> getDeviceId() async {
+    // This basic implementation doesn't support reading device ID
+    // Use RealBluetoothEndpoint for full PlantNanny BLE support
+    return null;
+  }
+
+  @override
+  Future<String?> getIpAddress() async {
+    return null;
+  }
+
+  @override
+  Future<String?> waitForIpAddress({Duration timeout = const Duration(seconds: 30)}) async {
+    return null;
+  }
 }

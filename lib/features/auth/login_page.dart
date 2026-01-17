@@ -28,9 +28,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       await ref.read(authNotifierProvider.notifier).signIn(email, password);
-      // On success, auth state changes and main will react
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Login failed: ${e.toString()}')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Login failed: ${e.toString()}')));
     }
   }
 
@@ -50,7 +52,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: Card(
               elevation: 4,
               color: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
@@ -61,9 +65,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       children: [
                         Icon(Icons.local_florist, size: 64, color: cs.primary),
                         const SizedBox(height: 12),
-                        Text('PlantNanny', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          'PlantNanny',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
                         const SizedBox(height: 12),
-                        Text('Gérez l\'arrosage de vos plantes', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                          'Gérez l\'arrosage de vos plantes',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                         const SizedBox(height: 16),
                       ],
                     ),
@@ -73,33 +85,55 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         children: [
                           TextFormField(
                             controller: _emailController,
-                            decoration: const InputDecoration(labelText: 'Email'),
-                            validator: (v) => (v == null || v.isEmpty) ? 'Email requis' : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                            ),
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Email requis'
+                                : null,
                             keyboardType: TextInputType.emailAddress,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _passwordController,
-                            decoration: const InputDecoration(labelText: 'Mot de passe'),
+                            decoration: const InputDecoration(
+                              labelText: 'Mot de passe',
+                            ),
                             obscureText: true,
-                            validator: (v) => (v == null || v.isEmpty) ? 'Mot de passe requis' : null,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? 'Mot de passe requis'
+                                : null,
                           ),
                           const SizedBox(height: 18),
                           auth.isLoading
                               ? const Center(child: CircularProgressIndicator())
                               : SizedBox(
                                   width: double.infinity,
-                                  child: ElevatedButton(onPressed: _submit, child: const Text('Se connecter')),
+                                  child: ElevatedButton(
+                                    onPressed: _submit,
+                                    child: const Text('Se connecter'),
+                                  ),
                                 ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      TextButton(onPressed: () => Navigator.of(context).pushNamed('/signup'), child: const Text('Créer un compte')),
-                      const SizedBox(width: 8),
-                      TextButton(onPressed: () => Navigator.of(context).pushNamed('/forgot'), child: const Text('Mot de passe oublié')),
-                    ])
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(context).pushNamed('/signup'),
+                          child: const Text('Créer un compte'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(context).pushNamed('/forgot'),
+                          child: const Text('Mot de passe oublié'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -46,3 +46,6 @@ app.*.map.json
 
 /ClientApi/*
 .venv/
+venv/
+.env
+firebase-service-account.json

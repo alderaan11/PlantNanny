@@ -1,16 +1,10 @@
 import 'dart:async';
 
-/// Simple Bluetooth service interface used by the app to discover and
-/// exchange text messages with endpoints (device that accepts Wi‑Fi creds).
 class BluetoothService {
-  /// Find nearby endpoints. Returns a list (may be empty).
   Future<List<BluetoothEndpoint>> findNearEndpoints() async => [];
-
-  /// Connect to an endpoint. Returns true on success.
   Future<bool> connect(BluetoothEndpoint endpoint) async => false;
 }
 
-/// Represents one connectable Bluetooth endpoint.
 abstract class BluetoothEndpoint {
   String get id;
   String? get name;
@@ -18,7 +12,15 @@ abstract class BluetoothEndpoint {
   Future<bool> connect();
   Future<bool> isConnected();
   Future<void> send(String message);
-  /// Returns next received message (may wait until one is available).
   Future<String?> recv({Duration? timeout});
   Future<void> close();
+  
+  /// Get the device UUID from the ESP32's BLE characteristic
+  Future<String?> getDeviceId();
+  
+  /// Get the device's IP address after WiFi connection
+  Future<String?> getIpAddress();
+  
+  /// Wait for the device to report its IP address
+  Future<String?> waitForIpAddress({Duration timeout = const Duration(seconds: 30)});
 }

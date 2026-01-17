@@ -38,6 +38,9 @@ RegisterDeviceRequest:
     name:
       type: string
       description: Friendly name for the device
+    ipAddress:
+      type: string
+      description: IP address of the device on the local network
   required: [pairingCode]
 
 UpdateDeviceRequest:
